@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  password     String
+  role         String   @default("user")
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  watchlistItems    WatchlistItem[]
+  progressItems     PlaybackProgress[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String
+  title       String
+  posterPath  String?
+  overview    String?
+  rating      Float?
+  releaseDate String?
+  addedAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@index([userId])
+}
+
+model PlaybackProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  contentId     String
+  contentType   String
+  title         String
+  posterPath    String?
+  seasonNumber  Int?
+  episodeNumber Int?
+  position      Int
+  duration      Int
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType, seasonNumber, episodeNumber])
+  @@index([userId])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("custom")
+  featured    Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items CollectionItem[]
+}
+
+model CollectionItem {
+  id           String   @id @default(cuid())
+  collectionId String
+  contentId    String
+  contentType  String
+  order        Int      @default(0)
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, contentId, contentType])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  message   String
+  type      String   @default("info")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model PlatformSettings {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+}
