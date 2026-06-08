@@ -14,13 +14,20 @@ model User {
   password     String
   role         String   @default("user")
   avatar       String?
+  language     String   @default("en")
+  autoplay     Boolean  @default(true)
+  emailNotify   Boolean  @default(true)
+  emailVerified Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   watchlistItems    WatchlistItem[]
   progressItems     PlaybackProgress[]
+  watchHistory      WatchHistory[]
   notifications     Notification[]
   auditLogs         AuditLog[]
+  ratings           Rating[]
+  reviews           Review[]
 }
 
 model WatchlistItem {
@@ -58,6 +65,60 @@ model PlaybackProgress {
 
   @@unique([userId, contentId, contentType, seasonNumber, episodeNumber])
   @@index([userId])
+}
+
+model WatchHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String
+  title       String
+  posterPath  String?
+  overview    String?
+  rating      Float?
+  releaseDate String?
+  progress    Int      @default(0)
+  duration    Int      @default(0)
+  watchedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@index([userId])
+  @@index([watchedAt])
+}
+
+model Rating {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String
+  score       Int      // 1-5 stars
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@index([contentId])
+  @@index([userId])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String
+  title       String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Collection {
@@ -151,6 +212,8 @@ model UploadedContent {
   episodes       Episode[]
   subtitles      Subtitle[]
   analytics      ContentAnalytics[]
+  schedules      ContentSchedule[]
+  homepageItems  HomepageSectionItem[]
 
   @@index([status])
   @@index([type])
@@ -212,4 +275,87 @@ model ContentAnalytics {
   @@index([contentId])
   @@index([createdAt])
   @@index([userId])
+}
+
+model ContentSchedule {
+  id              String   @id @default(cuid())
+  contentId       String
+  action          String   // "publish", "archive"
+  scheduledAt     DateTime
+  executed        Boolean  @default(false)
+  executedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  content         UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt])
+  @@index([executed])
+}
+
+model HomepageSection {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   @default("custom") // "trending", "popular", "top_rated", "now_playing", "on_the_air", "upcoming", "custom"
+  order       Int      @default(0)
+  visible     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       HomepageSectionItem[]
+
+  @@index([order])
+}
+
+model HomepageSectionItem {
+  id          String   @id @default(cuid())
+  sectionId   String
+  contentId   String?
+  contentType String?  // "tmdb_movie", "tmdb_tv", "uploaded"
+  uploadedId  String?  // reference to UploadedContent
+  order       Int      @default(0)
+
+  section     HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  uploaded    UploadedContent? @relation(fields: [uploadedId], references: [id], onDelete: SetNull)
+
+  @@index([sectionId])
+}
+
+model ErrorLog {
+  id          String   @id @default(cuid())
+  type        String   // "api", "upload", "playback", "system"
+  message     String
+  stack       String?
+  endpoint    String?
+  userId      String?
+  metadata    String?  // JSON string with additional context
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([resolved])
+}
+
+model Backup {
+  id          String   @id @default(cuid())
+  filename    String
+  size        Int      @default(0) // bytes
+  type        String   @default("full") // "full", "data_only"
+  status      String   @default("completed") // "in_progress", "completed", "failed"
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  to          String
+  subject     String
+  type        String   // "welcome", "password_reset", "verification", "notification"
+  status      String   @default("sent") // "sent", "failed"
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@index([to])
+  @@index([createdAt])
 }

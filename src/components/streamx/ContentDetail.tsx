@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStore } from '@/lib/store';
 import { getDetails, getImageUrl, getBackdropUrl, getProfileUrl } from '@/lib/tmdb';
 import { ContentRow } from './ContentRow';
+import { RatingsReviews } from './RatingsReviews';
 import type { TMDBMovieDetail, TMDBTVDetail, TMDBContent, WatchlistItem } from '@/lib/types';
 
 interface ContentDetailProps {
@@ -48,6 +49,24 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
       })
       .catch(() => {});
   }, [isAuthenticated, contentId, mediaType]);
+
+  // Track watch history
+  useEffect(() => {
+    if (!isAuthenticated || !detail) return;
+    fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contentId,
+        contentType: mediaType,
+        title,
+        posterPath: detail.poster_path || null,
+        overview: detail.overview || null,
+        rating: detail.vote_average || null,
+        releaseDate: date || null,
+      }),
+    }).catch(() => {});
+  }, [isAuthenticated, detail, contentId, mediaType, title, date]);
 
   const handleToggleWatchlist = useCallback(async () => {
     if (!isAuthenticated || !detail) return;
@@ -224,6 +243,11 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Overview</h3>
               <p className="text-muted-foreground leading-relaxed">{detail.overview}</p>
+            </div>
+
+            {/* Ratings & Reviews */}
+            <div className="mt-8">
+              <RatingsReviews contentId={contentId} contentType={mediaType} />
             </div>
 
             {/* Seasons for TV */}

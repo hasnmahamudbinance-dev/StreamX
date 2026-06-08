@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Search, Bell, User, X, LogOut, Bookmark, Shield } from 'lucide-react';
+import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -210,6 +210,9 @@ export function Navbar() {
                         <div className="py-1">
                           <button onClick={() => { navigate('profile'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                             <User className="h-4 w-4" /> Profile
+                          </button>
+                          <button onClick={() => { navigate('profile'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
+                            <Settings className="h-4 w-4" /> Settings
                           </button>
                           <button onClick={() => { navigate('watchlist'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                             <Bookmark className="h-4 w-4" /> My List

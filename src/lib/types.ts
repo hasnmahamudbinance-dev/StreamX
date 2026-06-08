@@ -140,6 +140,20 @@ export interface ProgressItem {
   updatedAt: string;
 }
 
+export interface WatchHistoryItem {
+  id: string;
+  contentId: string;
+  contentType: string;
+  title: string;
+  posterPath: string | null;
+  overview: string | null;
+  rating: number | null;
+  releaseDate: string | null;
+  progress: number;
+  duration: number;
+  watchedAt: string;
+}
+
 export interface NotificationItem {
   id: string;
   title: string;
@@ -155,6 +169,122 @@ export interface UserSession {
   name: string;
   role: string;
   image?: string | null;
+  avatar?: string | null;
+  language?: string;
+  autoplay?: boolean;
+  emailNotify?: boolean;
+}
+
+export interface RatingData {
+  average: number;
+  count: number;
+  distribution: number[];
+  userRating: number | null;
+}
+
+export interface ReviewItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    name: string;
+    avatar: string | null;
+  };
+}
+
+export interface ContentScheduleItem {
+  id: string;
+  contentId: string;
+  action: string;
+  scheduledAt: string;
+  executed: boolean;
+  executedAt: string | null;
+  createdAt: string;
+  content: {
+    title: string;
+    type: string;
+    status: string;
+  };
+}
+
+export interface HomepageSectionData {
+  id: string;
+  title: string;
+  type: string;
+  order: number;
+  visible: boolean;
+  items: HomepageSectionItemData[];
+}
+
+export interface HomepageSectionItemData {
+  id: string;
+  sectionId: string;
+  contentId: string | null;
+  contentType: string | null;
+  uploadedId: string | null;
+  order: number;
+  uploaded?: {
+    id: string;
+    title: string;
+    posterUrl: string | null;
+    type: string;
+  } | null;
+}
+
+export interface SystemSettings {
+  [key: string]: {
+    value: string;
+    description?: string;
+  };
+}
+
+export interface StorageStats {
+  totalStorage: number;
+  videoStorage: number;
+  imageStorage: number;
+  fileCount: number;
+  breakdown: {
+    videos: number;
+    images: number;
+    avatars: number;
+    other: number;
+  };
+}
+
+export interface ErrorLogItem {
+  id: string;
+  type: string;
+  message: string;
+  stack: string | null;
+  endpoint: string | null;
+  userId: string | null;
+  metadata: string | null;
+  resolved: boolean;
+  createdAt: string;
+}
+
+export interface BackupItem {
+  id: string;
+  filename: string;
+  size: number;
+  type: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface EmailLogItem {
+  id: string;
+  to: string;
+  subject: string;
+  type: string;
+  status: string;
+  error: string | null;
+  createdAt: string;
 }
 
 export type PageRoute = 
@@ -163,6 +293,7 @@ export type PageRoute =
   | 'movie' 
   | 'tv' 
   | 'watchlist' 
+  | 'history'
   | 'profile' 
   | 'login' 
   | 'register'
