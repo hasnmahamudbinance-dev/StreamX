@@ -118,3 +118,98 @@ model PlatformSettings {
   value       String
   description String?
 }
+
+model UploadedContent {
+  id             String   @id @default(cuid())
+  title          String
+  originalTitle  String?
+  description    String?
+  type           String   // "movie" or "tv"
+  status         String   @default("draft") // "draft", "processing", "published", "archived"
+  releaseDate    String?
+  genres         String?  // comma-separated genre names
+  language       String   @default("en")
+  runtime        Int      @default(0)
+  rating         Float    @default(0)
+  posterUrl      String?
+  backdropUrl    String?
+  trailerUrl     String?
+  cast           String?  // JSON string of cast array
+  director       String?
+  hlsMasterUrl   String?  // URL to master.m3u8
+  videoFileSize  Int      @default(0) // bytes
+  videoFormat    String?  // mp4, mov, mkv, webm
+  videoDuration  Int      @default(0) // seconds
+  thumbnailUrl   String?
+  views          Int      @default(0)
+  watchTime      Int      @default(0) // total seconds watched
+  featured       Boolean  @default(false)
+  uploadedBy     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  episodes       Episode[]
+  subtitles      Subtitle[]
+  analytics      ContentAnalytics[]
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Episode {
+  id             String   @id @default(cuid())
+  contentId      String
+  seasonNumber   Int      @default(1)
+  episodeNumber  Int
+  title          String
+  description    String?
+  runtime        Int      @default(0)
+  hlsMasterUrl   String?
+  thumbnailUrl   String?
+  videoFileSize  Int      @default(0)
+  videoFormat    String?
+  videoDuration  Int      @default(0)
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  content        UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, seasonNumber, episodeNumber])
+  @@index([contentId])
+}
+
+model Subtitle {
+  id          String   @id @default(cuid())
+  contentId   String
+  episodeId   String?
+  language    String
+  label       String
+  url         String
+  format      String   @default("vtt") // vtt, srt
+  createdAt   DateTime @default(now())
+
+  content     UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+}
+
+model ContentAnalytics {
+  id          String   @id @default(cuid())
+  contentId   String
+  episodeId   String?
+  userId      String?
+  action      String   // "view", "play", "pause", "complete", "seek"
+  position    Int      @default(0)
+  duration    Int      @default(0)
+  quality     String?  // "480p", "720p", "1080p"
+  device      String?  // "desktop", "mobile", "tablet"
+  createdAt   DateTime @default(now())
+
+  content     UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@index([createdAt])
+  @@index([userId])
+}

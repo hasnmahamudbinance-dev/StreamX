@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import {
   Shield, Users, BarChart3, Bell, FolderOpen,
-  Loader2, Trash2, Search, Send,
+  Loader2, Trash2, Search, Send, Film,
 } from 'lucide-react';
+import { ContentManager } from './ContentManager';
 
 interface AdminStats {
   totalUsers: number;
@@ -135,6 +136,7 @@ export function AdminDashboard() {
           <TabsTrigger value="overview"><BarChart3 className="h-4 w-4 mr-2" /> Overview</TabsTrigger>
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-2" /> Users</TabsTrigger>
           <TabsTrigger value="notifications"><Bell className="h-4 w-4 mr-2" /> Notifications</TabsTrigger>
+          <TabsTrigger value="content"><Film className="h-4 w-4 mr-2" /> Content</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -298,6 +300,9 @@ export function AdminDashboard() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="content">
+          <ContentManager />
         </TabsContent>
       </Tabs>
     </div>

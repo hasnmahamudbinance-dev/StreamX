@@ -18,6 +18,7 @@ export function HomePage() {
   const [nowPlaying, setNowPlaying] = useState<TMDBContent[]>([]);
   const [onTheAir, setOnTheAir] = useState<TMDBContent[]>([]);
   const [upcoming, setUpcoming] = useState<TMDBContent[]>([]);
+  const [publishedContent, setPublishedContent] = useState<TMDBContent[]>([]);
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +44,34 @@ export function HomePage() {
       setUpcoming(upcomingData.results || []);
       setIsLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/content/published')
+      .then(r => r.json())
+      .then(data => {
+        if (data.items?.length > 0) {
+          const mapped = data.items.map((item: Record<string, unknown>) => ({
+            id: `custom-${item.id}`,
+            title: item.title as string,
+            name: item.title as string,
+            overview: (item.description as string) || '',
+            poster_path: (item.posterUrl as string) ? (item.posterUrl as string).replace('/uploads/', '') : null,
+            backdrop_path: null,
+            release_date: (item.releaseDate as string) || '',
+            first_air_date: (item.releaseDate as string) || '',
+            vote_average: (item.rating as number) || 0,
+            vote_count: 0,
+            genre_ids: [],
+            popularity: 0,
+            adult: false,
+            original_language: (item.language as string) || 'en',
+            media_type: (item.type as string) || 'movie',
+          }));
+          setPublishedContent(mapped as TMDBContent[]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -169,6 +198,16 @@ export function HomePage() {
         onAddToWatchlist={handleAddToWatchlist}
         onRemoveFromWatchlist={handleRemoveFromWatchlist}
       />
+
+      {publishedContent.length > 0 && (
+        <ContentRow
+          title="StreamX Originals"
+          items={publishedContent}
+          watchlistIds={watchlistIds}
+          onAddToWatchlist={handleAddToWatchlist}
+          onRemoveFromWatchlist={handleRemoveFromWatchlist}
+        />
+      )}
     </div>
   );
 }

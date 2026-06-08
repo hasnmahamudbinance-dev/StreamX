@@ -245,3 +245,129 @@ Updated two functions in `/home/z/my-project/src/lib/store.ts`:
 - To enable live TMDB data: update TMDB_API_KEY in .env with a valid key from themoviedb.org
 - All lint checks pass with zero errors
 - Dev server running on port 3000
+
+## Task 9: Update Prisma Schema for Movie Upload & Content Management System
+**Date:** 2026-03-04
+**Status:** ✅ Completed
+
+### Actions Performed:
+1. **Added UploadedContent model** to `prisma/schema.prisma` — Core content model with fields: id, title, originalTitle, description, type (movie/tv), status (draft/processing/published/archived), releaseDate, genres (comma-separated), language, runtime, rating, posterUrl, backdropUrl, trailerUrl, cast (JSON string), director, hlsMasterUrl, videoFileSize, videoFormat, videoDuration, thumbnailUrl, views, watchTime, featured, uploadedBy, createdAt, updatedAt. Relations: episodes (Episode[]), subtitles (Subtitle[]), analytics (ContentAnalytics[]). Indexes on status, type, createdAt.
+2. **Added Episode model** to `prisma/schema.prisma` — TV episode model with fields: id, contentId, seasonNumber, episodeNumber, title, description, runtime, hlsMasterUrl, thumbnailUrl, videoFileSize, videoFormat, videoDuration, status, createdAt, updatedAt. Relation: content (UploadedContent). Unique constraint on [contentId, seasonNumber, episodeNumber]. Index on contentId.
+3. **Added Subtitle model** to `prisma/schema.prisma` — Subtitle track model with fields: id, contentId, episodeId, language, label, url, format (vtt/srt), createdAt. Relation: content (UploadedContent). Index on contentId.
+4. **Added ContentAnalytics model** to `prisma/schema.prisma` — Analytics event model with fields: id, contentId, episodeId, userId, action (view/play/pause/complete/seek), position, duration, quality, device, createdAt. Relation: content (UploadedContent). Indexes on contentId, createdAt, userId.
+5. **Ran `bun run db:push`** — Successfully synced 4 new models to SQLite database and regenerated Prisma Client v6.19.2.
+6. All existing models (User, WatchlistItem, PlaybackProgress, Collection, CollectionItem, Notification, AuditLog, PlatformSettings) remain unchanged.
+
+### Errors Encountered:
+- None. Schema push completed cleanly.
+
+### Files Modified:
+- `/home/z/my-project/prisma/schema.prisma` (added 4 new models: UploadedContent, Episode, Subtitle, ContentAnalytics)
+- `/home/z/my-project/db/custom.db` (updated via db:push — new tables created)
+
+## Task 10: Build CMS Backend API Routes
+**Date:** 2026-03-04
+**Status:** ✅ Completed
+
+### Actions Performed:
+1. **Created upload directories** — Created `/home/z/my-project/uploads/videos/`, `/home/z/my-project/uploads/images/`, `/home/z/my-project/uploads/subtitles/`, `/home/z/my-project/uploads/hls/` for file storage.
+2. **Created Admin Content API** (`src/app/api/admin/content/route.ts`) — GET: List all uploaded content with pagination (page/limit), search (title contains), status filter, type filter. Includes episode and subtitle counts. POST: Create new content entry (metadata only), validates title/type required, creates audit log.
+3. **Created Admin Content Detail API** (`src/app/api/admin/content/[id]/route.ts`) — GET: Fetch single content with episodes (ordered by season/episode) and subtitles. PATCH: Update content metadata, creates audit log. DELETE: Delete content with file cleanup (removes HLS directory, poster/backdrop files from uploads), creates audit log.
+4. **Created Upload API** (`src/app/api/admin/upload/route.ts`) — POST: Multipart file upload handler supporting video, poster, backdrop, thumbnail, and subtitle types. Validates file size (500MB max), checks MIME types via magic number detection. Videos: saves to uploads/videos/, creates simulated HLS master.m3u8 in uploads/hls/{contentId}/, updates content status from processing→published. Images: saves to uploads/images/, updates content posterUrl/backdropUrl. Subtitles: saves to uploads/subtitles/, creates Subtitle record with language/label. All admin-only with audit logging.
+5. **Created Admin Episodes API** (`src/app/api/admin/episodes/route.ts`) — POST: Create episode with contentId, seasonNumber, episodeNumber, title, description, runtime. Validates required fields.
+6. **Created Admin Episode Detail API** (`src/app/api/admin/episodes/[id]/route.ts`) — PATCH: Update episode metadata. DELETE: Delete episode. Both admin-only.
+7. **Created Public Content Detail API** (`src/app/api/content/[id]/route.ts`) — GET: Fetch published/processing content with episodes and subtitles. Increments view count on access. No auth required.
+8. **Created Public Published Content API** (`src/app/api/content/published/route.ts`) — GET: List published content with pagination and type filter. Orders by featured first, then newest. Includes episode count. No auth required.
+9. **Created Analytics API** (`src/app/api/analytics/route.ts`) — POST: Record analytics event (view/play/pause/complete/seek) with optional userId from session. Updates watch time on complete/pause actions. No auth required (supports anonymous events).
+10. **Created Admin Analytics API** (`src/app/api/admin/analytics/route.ts`) — GET: Dashboard stats (totalViews, totalWatchTime, totalContent, publishedContent, totalEpisodes, totalAnalyticsEvents), top 10 popular content, 50 recent analytics events, action-based grouping for last 7 days. Admin-only.
+11. **Created File Serve API** (`src/app/api/serve-upload/[...path]/route.ts`) — GET: Serves uploaded files from the uploads directory. Content-type detection by extension (MP4, MOV, MKV, WebM, JPEG, PNG, WebP, VTT, SRT, M3U8, TS). Supports HTTP range requests for video streaming (206 Partial Content). Sets cache headers and CORS for M3U8 files.
+12. **Updated Next.js config** (`next.config.ts`) — Added async rewrites() to map `/uploads/:path*` to `/api/serve-upload/:path*` so uploaded files are accessible at `/uploads/...` URLs.
+
+### Errors Encountered:
+- **ESLint unused directive warnings** (2): Initial lint run showed warnings for `@typescript-eslint/no-explicit-any` eslint-disable comments in admin/content/route.ts and content/published/route.ts — the rule wasn't configured to error. Removed the directives and changed `any` types to `Record<string, unknown>`. Re-ran lint: 0 errors, 0 warnings.
+
+### Files Created:
+- `/home/z/my-project/uploads/videos/` (directory)
+- `/home/z/my-project/uploads/images/` (directory)
+- `/home/z/my-project/uploads/subtitles/` (directory)
+- `/home/z/my-project/uploads/hls/` (directory)
+- `/home/z/my-project/src/app/api/admin/content/route.ts`
+- `/home/z/my-project/src/app/api/admin/content/[id]/route.ts`
+- `/home/z/my-project/src/app/api/admin/upload/route.ts`
+- `/home/z/my-project/src/app/api/admin/episodes/route.ts`
+- `/home/z/my-project/src/app/api/admin/episodes/[id]/route.ts`
+- `/home/z/my-project/src/app/api/content/[id]/route.ts`
+- `/home/z/my-project/src/app/api/content/published/route.ts`
+- `/home/z/my-project/src/app/api/analytics/route.ts`
+- `/home/z/my-project/src/app/api/admin/analytics/route.ts`
+- `/home/z/my-project/src/app/api/serve-upload/[...path]/route.ts`
+
+### Files Modified:
+- `/home/z/my-project/next.config.ts` (added rewrites for /uploads → /api/serve-upload)
+
+## Task 11: Build CMS Frontend Components & Video Player
+**Date:** 2026-03-04
+**Status:** ✅ Completed
+
+### Actions Performed:
+1. **Created ContentManager component** (`src/components/streamx/ContentManager.tsx`) — Full admin content management page with: content library table (Title, Type, Status, Video, Views, Watch Time, Actions columns), Upload Content button opening create dialog (Title, Original Title, Description, Type, Language, Release Date, Genres, Runtime, Rating, Director, Cast, Featured fields), edit dialog with tabs for Metadata/Files/Episodes/Subtitles, file upload support for poster/backdrop/video/subtitles via hidden file inputs, episode management for TV shows (add/delete episodes with video upload), content status management (draft→published→archived), delete with confirmation, search and filter by status/type, empty state with call-to-action.
+2. **Created VideoPlayer component** (`src/components/streamx/VideoPlayer.tsx`) — HLS video player with: play/pause toggle, seek bar with time display, volume/mute controls, fullscreen support, auto-hiding controls (3s timeout), loading spinner during buffering, play overlay when paused, title bar with gradient overlay, subtitle selection dropdown, analytics tracking (POST /api/analytics every 30s with contentId/episodeId/action/position/duration/device), progress reporting callback.
+3. **Created PlayerPage component** (`src/components/streamx/PlayerPage.tsx`) — Player page wrapper that fetches content details from /api/content/[id], shows loading spinner, displays "Content Not Available" if no video, renders VideoPlayer with metadata, shows content title/description/genres/language/views below player, back navigation button.
+4. **Updated AdminDashboard** (`src/components/streamx/AdminDashboard.tsx`) — Added "Content" tab with Film icon to TabsList, added TabsContent rendering ContentManager component, imported ContentManager and Film icon.
+5. **Updated types** (`src/lib/types.ts`) — Added 'player' to PageRoute union type.
+6. **Updated main page** (`src/app/page.tsx`) — Added PlayerPage import, added 'player' case in switch statement that renders PlayerPage when currentParams.id exists.
+7. **Updated HomePage** (`src/components/streamx/HomePage.tsx`) — Added publishedContent state, added useEffect to fetch /api/content/published and map items to TMDBContent format (prefixing id with 'custom-' to distinguish from TMDB content), added "StreamX Originals" ContentRow after "Upcoming Movies" row (conditionally rendered when published content exists).
+8. **Ran lint check** — Initial run showed 2 warnings: jsx-a11y/alt-text for `Image` component from lucide-react being confused with HTML `<img>` element. Fixed by renaming import from `Image` to `ImageIcon` and updating both usages (Upload Poster button, Upload Backdrop button). Re-ran lint: 0 errors, 0 warnings.
+
+### Errors Encountered:
+- **jsx-a11y/alt-text warnings** (2): The lucide-react `Image` icon component was triggering the alt-text rule because its name matches the HTML `<img>` element convention. Fixed by importing as `Image as ImageIcon` to avoid the naming collision.
+
+### Files Created:
+- `/home/z/my-project/src/components/streamx/ContentManager.tsx`
+- `/home/z/my-project/src/components/streamx/VideoPlayer.tsx`
+- `/home/z/my-project/src/components/streamx/PlayerPage.tsx`
+
+### Files Modified:
+- `/home/z/my-project/src/components/streamx/AdminDashboard.tsx` (added Content tab with ContentManager)
+- `/home/z/my-project/src/lib/types.ts` (added 'player' to PageRoute)
+- `/home/z/my-project/src/app/page.tsx` (added PlayerPage import and route case)
+- `/home/z/my-project/src/components/streamx/HomePage.tsx` (added StreamX Originals section from /api/content/published)
+
+## Task 12: Add Toast Notifications & Seed Demo Content
+**Date:** 2026-03-04
+**Status:** ✅ Completed
+
+### Actions Performed:
+
+1. **Added toast notifications to ContentManager.tsx** (`src/components/streamx/ContentManager.tsx`) — Added `import { toast } from 'sonner'` and inserted toast calls in all user-facing operations:
+   - `handleCreate`: `toast.success('Content created successfully')` on success, `toast.error('Failed to create content')` on error
+   - `handleUpdate`: `toast.success('Changes saved')` on success, `toast.error('Failed to save changes')` on error
+   - `handleStatusChange`: `toast.success(`Status changed to ${status}`)` on success
+   - `handleDelete`: `toast.success('Content deleted')` on success
+   - `handleFileUpload`: `toast.success(`${type} uploaded successfully`)` on success, `toast.error(data.error || 'Upload failed')` on error (replaced previous `alert()` call)
+   - `handleAddEpisode`: `toast.success('Episode added')` on success
+
+2. **Added Toaster component to root layout** (`src/app/layout.tsx`) — Added `import { Toaster } from "sonner"` and `<Toaster />` inside the `<body>` element so toast notifications render across all pages.
+
+3. **Created content seed script** (`prisma/seed-content.ts`) — Seeds the database with demo content:
+   - **Galactic Horizon** — Published sci-fi movie (rating 8.7, 148min runtime, featured)
+   - **Neon Shadows** — Published cyberpunk TV show (rating 9.1, featured) with 6 episodes across 2 seasons (The Signal, Ghost Protocol, Digital Rain / New Dawn, Mirror Image, End Game)
+   - **The Last Frontier** — Draft western movie (rating 7.8)
+   - **Echo Chamber** — Archived thriller TV show (rating 6.5)
+   - 20 analytics events (5 per content item: view, play, complete, pause, seek with random quality/device)
+
+4. **Ran seed script** — All content, episodes, and analytics created successfully.
+
+5. **Tested published content API** — `GET /api/content/published` returns 2 items: Neon Shadows (tv) and Galactic Horizon (movie).
+
+6. **Ran lint check** — 0 errors, 0 warnings.
+
+### Errors Encountered:
+- None. All changes were clean, lint passed on first run.
+
+### Files Created:
+- `/home/z/my-project/prisma/seed-content.ts`
+
+### Files Modified:
+- `/home/z/my-project/src/components/streamx/ContentManager.tsx` (added toast import and 8 toast notification calls)
+- `/home/z/my-project/src/app/layout.tsx` (added Toaster import and component)

@@ -12,6 +12,7 @@ import { WatchlistPage } from '@/components/streamx/WatchlistPage';
 import { AuthPage } from '@/components/streamx/AuthPage';
 import { ProfilePage } from '@/components/streamx/ProfilePage';
 import { AdminDashboard } from '@/components/streamx/AdminDashboard';
+import { PlayerPage } from '@/components/streamx/PlayerPage';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -62,6 +63,8 @@ export default function StreamXApp() {
         return <ProfilePage />;
       case 'admin':
         return <AdminDashboard />;
+      case 'player':
+        return currentParams.id ? <PlayerPage /> : <HomePage />;
       default:
         return <HomePage />;
     }

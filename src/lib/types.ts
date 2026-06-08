@@ -166,7 +166,8 @@ export type PageRoute =
   | 'profile' 
   | 'login' 
   | 'register'
-  | 'admin';
+  | 'admin'
+  | 'player';
 
 export interface AppState {
   currentPage: PageRoute;
