@@ -26,7 +26,11 @@ import {
   AlertTriangle, Database, Mail, ArrowUp, ArrowDown,
   GripVertical, Plus, RefreshCw, Clock, CheckCircle,
   XCircle, Eye, EyeOff, Save,
+  Lock, Key, Fingerprint, Monitor, Globe, Unlock,
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+} from 'recharts';
 import { ContentManager } from './ContentManager';
 import { toast } from 'sonner';
 
@@ -116,6 +120,70 @@ interface UploadedContentOption {
   id: string;
   title: string;
   type: string;
+}
+
+interface SecurityData {
+  totalUsers: number;
+  verifiedUsers: number;
+  unverifiedUsers: number;
+  usersWith2FA: number;
+  recentLogins: number;
+  failedLogins: number;
+  newDeviceLogins: number;
+  lockedAccounts: number;
+  activeSessions: number;
+  passwordResets: number;
+  emailVerificationRequests: number;
+  recentActivity: {
+    id: string;
+    userId: string;
+    action: string;
+    deviceName: string | null;
+    platform: string | null;
+    browser: string | null;
+    ipAddress: string | null;
+    country: string | null;
+    details: string | null;
+    createdAt: string;
+    user: { id: string; name: string; email: string } | null;
+  }[];
+  loginChartData: { date: string; successful: number; failed: number; newDevice: number }[];
+  recentFailedLogins: {
+    id: string;
+    userId: string;
+    action: string;
+    ipAddress: string | null;
+    deviceName: string | null;
+    createdAt: string;
+    user: { id: string; name: string; email: string } | null;
+  }[];
+  lockedAccountsList: {
+    id: string;
+    email: string;
+    name: string;
+    failedLoginAttempts: number;
+    lockedUntil: string | null;
+  }[];
+  recentPasswordResets: {
+    id: string;
+    code: string;
+    used: boolean;
+    createdAt: string;
+    expiresAt: string;
+    user: { id: string; name: string; email: string } | null;
+  }[];
+}
+
+interface SearchedUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  failedLoginAttempts: number;
+  lockedUntil: string | null;
+  twoFactorEnabled: boolean;
+  emailVerified: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -217,6 +285,14 @@ export function AdminDashboard() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>([]);
   const [emailLogsLoading, setEmailLogsLoading] = useState(false);
+
+  // Security
+  const [securityData, setSecurityData] = useState<SecurityData | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityUserSearch, setSecurityUserSearch] = useState('');
+  const [securitySearchResult, setSecuritySearchResult] = useState<SearchedUser | null>(null);
+  const [securitySearching, setSecuritySearching] = useState(false);
+  const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
   // ─── Initial data fetch ─────────────────────────────────────
 
@@ -803,6 +879,85 @@ export function AdminDashboard() {
     }
   };
 
+  // ─── Security tab data ─────────────────────────────────────
+
+  const fetchSecurity = useCallback(async () => {
+    setSecurityLoading(true);
+    try {
+      const res = await fetch('/api/admin/security');
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        setSecurityData(data);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSecurityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchSecurity();
+    }
+  }, [isAuthenticated, user?.role, fetchSecurity]);
+
+  // ─── Security handlers ─────────────────────────────────────
+
+  const handleSecurityUserSearch = async () => {
+    if (!securityUserSearch) return;
+    setSecuritySearching(true);
+    setSecuritySearchResult(null);
+    try {
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(securityUserSearch)}&limit=1`);
+      const data = await res.json();
+      const found = data.users?.[0];
+      if (found) {
+        setSecuritySearchResult({
+          id: found.id,
+          email: found.email,
+          name: found.name,
+          role: found.role,
+          status: found.status || 'active',
+          failedLoginAttempts: found.failedLoginAttempts || 0,
+          lockedUntil: found.lockedUntil || null,
+          twoFactorEnabled: found.twoFactorEnabled || false,
+          emailVerified: found.emailVerified || false,
+        });
+      } else {
+        toast.error('User not found');
+      }
+    } catch {
+      toast.error('Search failed');
+    } finally {
+      setSecuritySearching(false);
+    }
+  };
+
+  const handleUnlockAccount = async (userId: string) => {
+    setUnlockingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active', failedLoginAttempts: 0, lockedUntil: null }),
+      });
+      if (res.ok) {
+        toast.success('Account unlocked successfully');
+        fetchSecurity();
+        setSecuritySearchResult(prev => prev ? { ...prev, status: 'active', failedLoginAttempts: 0, lockedUntil: null } : null);
+      } else {
+        toast.error('Failed to unlock account');
+      }
+    } catch {
+      toast.error('Failed to unlock account');
+    } finally {
+      setUnlockingUserId(null);
+    }
+  };
+
   // ─── Guard ──────────────────────────────────────────────────
 
   if (!isAuthenticated || user?.role !== 'admin') {
@@ -844,6 +999,7 @@ export function AdminDashboard() {
             <TabsTrigger value="errors" className="gap-1.5 text-xs sm:text-sm"><AlertTriangle className="h-4 w-4" /> Errors</TabsTrigger>
             <TabsTrigger value="backup" className="gap-1.5 text-xs sm:text-sm"><Database className="h-4 w-4" /> Backup</TabsTrigger>
             <TabsTrigger value="email" className="gap-1.5 text-xs sm:text-sm"><Mail className="h-4 w-4" /> Email</TabsTrigger>
+            <TabsTrigger value="security" className="gap-1.5 text-xs sm:text-sm"><Lock className="h-4 w-4" /> Security</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1819,6 +1975,412 @@ export function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ── Security Tab ── */}
+        <TabsContent value="security">
+          {securityLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : securityData ? (
+            <div className="space-y-6">
+              {/* Metrics Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4 text-center">
+                    <Users className="h-8 w-8 mx-auto text-primary mb-2" />
+                    <p className="text-3xl font-bold">{securityData.totalUsers}</p>
+                    <p className="text-sm text-muted-foreground">Total Users</p>
+                    <div className="flex justify-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle className="h-3 w-3 mr-1" />{securityData.verifiedUsers} verified
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {securityData.unverifiedUsers} unverified
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4 text-center">
+                    <Fingerprint className="h-8 w-8 mx-auto text-emerald-500 mb-2" />
+                    <p className="text-3xl font-bold">{securityData.usersWith2FA}</p>
+                    <p className="text-sm text-muted-foreground">2FA Enabled</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {securityData.totalUsers > 0 ? ((securityData.usersWith2FA / securityData.totalUsers) * 100).toFixed(1) : 0}% adoption rate
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border">
+                  <CardContent className="p-4 text-center">
+                    <Monitor className="h-8 w-8 mx-auto text-sky-500 mb-2" />
+                    <p className="text-3xl font-bold">{securityData.activeSessions}</p>
+                    <p className="text-sm text-muted-foreground">Active Sessions</p>
+                  </CardContent>
+                </Card>
+                <Card className={`bg-card border-border ${securityData.lockedAccounts > 0 ? 'border-red-500/50' : ''}`}>
+                  <CardContent className="p-4 text-center">
+                    <Lock className={`h-8 w-8 mx-auto mb-2 ${securityData.lockedAccounts > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+                    <p className={`text-3xl font-bold ${securityData.lockedAccounts > 0 ? 'text-red-500' : ''}`}>{securityData.lockedAccounts}</p>
+                    <p className="text-sm text-muted-foreground">Locked Accounts</p>
+                    {securityData.lockedAccounts > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">Action Required</Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Login Activity */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" /> Login Activity (24h)
+                  </CardTitle>
+                  <CardDescription>Authentication events in the last 24 hours</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-center">
+                      <CheckCircle className="h-6 w-6 mx-auto text-emerald-500 mb-1" />
+                      <p className="text-2xl font-bold text-emerald-500">{securityData.recentLogins}</p>
+                      <p className="text-sm text-muted-foreground">Successful</p>
+                    </div>
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-center">
+                      <XCircle className="h-6 w-6 mx-auto text-red-500 mb-1" />
+                      <p className="text-2xl font-bold text-red-500">{securityData.failedLogins}</p>
+                      <p className="text-sm text-muted-foreground">Failed</p>
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-center">
+                      <AlertTriangle className="h-6 w-6 mx-auto text-amber-500 mb-1" />
+                      <p className="text-2xl font-bold text-amber-500">{securityData.newDeviceLogins}</p>
+                      <p className="text-sm text-muted-foreground">New Devices</p>
+                    </div>
+                  </div>
+                  {/* 7-day Login Chart */}
+                  {securityData.loginChartData.length > 0 && (
+                    <div className="h-64 mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={securityData.loginChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                            labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          />
+                          <Legend />
+                          <Bar dataKey="successful" name="Successful" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="failed" name="Failed" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="newDevice" name="New Device" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Recent Security Events */}
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" /> Recent Security Events
+                      </CardTitle>
+                      <CardDescription>Latest 20 security-relevant activity entries</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={fetchSecurity}>
+                      <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {securityData.recentActivity.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No security events recorded</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Time</TableHead>
+                            <TableHead>User</TableHead>
+                            <TableHead>Action</TableHead>
+                            <TableHead>Device</TableHead>
+                            <TableHead>IP</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {securityData.recentActivity.map(a => {
+                            const severity =
+                              a.action === 'login_failed' ? 'red' :
+                              a.action === 'login' ? 'green' :
+                              ['new_device', '2fa_disabled', 'email_change', 'password_change'].includes(a.action) ? 'amber' : 'default';
+                            return (
+                              <TableRow key={a.id}>
+                                <TableCell className="text-xs whitespace-nowrap">
+                                  {formatDate(a.createdAt)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {a.user?.name || 'Unknown'}
+                                  <p className="text-xs text-muted-foreground">{a.user?.email}</p>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      severity === 'red' ? 'border-red-500/50 text-red-500' :
+                                      severity === 'green' ? 'border-emerald-500/50 text-emerald-500' :
+                                      severity === 'amber' ? 'border-amber-500/50 text-amber-500' : ''
+                                    }
+                                  >
+                                    {a.action.replace(/_/g, ' ')}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {a.deviceName || a.platform || a.browser || '—'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Globe className="h-3 w-3" />
+                                    {a.ipAddress || '—'}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Quick Actions + Security Alerts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Quick Actions */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Search className="h-5 w-5" /> Quick Actions
+                    </CardTitle>
+                    <CardDescription>Search users and manage account security</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={securityUserSearch}
+                        onChange={(e) => setSecurityUserSearch(e.target.value)}
+                        placeholder="Search by email..."
+                        className="bg-secondary border-border"
+                        onKeyDown={(e) => e.key === 'Enter' && handleSecurityUserSearch()}
+                      />
+                      <Button variant="outline" onClick={handleSecurityUserSearch} disabled={securitySearching}>
+                        {securitySearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    {securitySearchResult && (
+                      <div className="border border-border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{securitySearchResult.name}</p>
+                            <p className="text-sm text-muted-foreground">{securitySearchResult.email}</p>
+                          </div>
+                          <Badge variant={securitySearchResult.status === 'active' ? 'default' : 'destructive'}>
+                            {securitySearchResult.status}
+                          </Badge>
+                        </div>
+                        <Separator />
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Role:</span>{' '}
+                            <Badge variant="secondary" className="text-xs">{securitySearchResult.role}</Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Email:</span>{' '}
+                            <Badge variant={securitySearchResult.emailVerified ? 'default' : 'outline'} className="text-xs">
+                              {securitySearchResult.emailVerified ? 'Verified' : 'Unverified'}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">2FA:</span>{' '}
+                            <Badge variant={securitySearchResult.twoFactorEnabled ? 'default' : 'outline'} className="text-xs">
+                              {securitySearchResult.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Failed Attempts:</span>{' '}
+                            <span className={securitySearchResult.failedLoginAttempts > 0 ? 'text-red-500 font-medium' : ''}>
+                              {securitySearchResult.failedLoginAttempts}
+                            </span>
+                          </div>
+                        </div>
+                        {securitySearchResult.lockedUntil && (
+                          <div className="flex items-center gap-2 text-sm text-red-500">
+                            <Lock className="h-4 w-4" />
+                            <span>Locked until {formatDate(securitySearchResult.lockedUntil)}</span>
+                          </div>
+                        )}
+                        {(securitySearchResult.status !== 'active' || securitySearchResult.lockedUntil) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleUnlockAccount(securitySearchResult.id)}
+                            disabled={unlockingUserId === securitySearchResult.id}
+                          >
+                            {unlockingUserId === securitySearchResult.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Unlock className="h-4 w-4 mr-2" />
+                            )}
+                            Unlock Account
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Locked Accounts Quick Unlock */}
+                    {securityData.lockedAccountsList.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-red-500 flex items-center gap-1">
+                          <Lock className="h-4 w-4" /> Locked Accounts
+                        </p>
+                        {securityData.lockedAccountsList.map(u => (
+                          <div key={u.id} className="flex items-center justify-between border border-red-500/20 rounded-lg px-3 py-2">
+                            <div>
+                              <p className="text-sm font-medium">{u.name}</p>
+                              <p className="text-xs text-muted-foreground">{u.email} · {u.failedLoginAttempts} failed attempts</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnlockAccount(u.id)}
+                              disabled={unlockingUserId === u.id}
+                            >
+                              {unlockingUserId === u.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Unlock className="h-3 w-3 mr-1" />
+                              )}
+                              Unlock
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Security Alerts */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" /> Security Alerts
+                    </CardTitle>
+                    <CardDescription>Recent security concerns requiring attention</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Failed Login Attempts */}
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                        <XCircle className="h-4 w-4 text-red-500" /> Recent Failed Logins
+                      </p>
+                      {securityData.recentFailedLogins.length === 0 ? (
+                        <p className="text-sm text-muted-foreground pl-5">No failed login attempts in the last 24h</p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {securityData.recentFailedLogins.map(f => (
+                            <div key={f.id} className="flex items-center justify-between text-sm bg-red-500/5 border border-red-500/10 rounded px-3 py-2">
+                              <div>
+                                <span className="font-medium">{f.user?.email || 'Unknown'}</span>
+                                <span className="text-muted-foreground ml-2">from {f.ipAddress || 'unknown IP'}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(f.createdAt)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Locked Accounts */}
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                        <Lock className="h-4 w-4 text-red-500" /> Locked Accounts
+                      </p>
+                      {securityData.lockedAccountsList.length === 0 ? (
+                        <p className="text-sm text-muted-foreground pl-5">No locked accounts</p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {securityData.lockedAccountsList.map(u => (
+                            <div key={u.id} className="flex items-center justify-between text-sm bg-red-500/5 border border-red-500/10 rounded px-3 py-2">
+                              <div>
+                                <span className="font-medium">{u.email}</span>
+                                <span className="text-muted-foreground ml-2">{u.failedLoginAttempts} attempts</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                until {u.lockedUntil ? formatDate(u.lockedUntil) : 'N/A'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Password Reset Requests */}
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                        <Key className="h-4 w-4 text-amber-500" /> Password Reset Requests (24h)
+                      </p>
+                      {securityData.recentPasswordResets.length === 0 ? (
+                        <p className="text-sm text-muted-foreground pl-5">No pending password resets</p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {securityData.recentPasswordResets.map(r => (
+                            <div key={r.id} className="flex items-center justify-between text-sm bg-amber-500/5 border border-amber-500/10 rounded px-3 py-2">
+                              <div>
+                                <span className="font-medium">{r.user?.email || 'Unknown'}</span>
+                                <span className="text-muted-foreground ml-2">expires {formatDate(r.expiresAt)}</span>
+                              </div>
+                              <Badge variant="outline" className="text-xs">{r.used ? 'Used' : 'Pending'}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                        <p className="text-lg font-bold">{securityData.passwordResets}</p>
+                        <p className="text-muted-foreground">Password Resets (24h)</p>
+                      </div>
+                      <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                        <p className="text-lg font-bold">{securityData.emailVerificationRequests}</p>
+                        <p className="text-muted-foreground">Email Verifications (24h)</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          ) : (
+            <Card className="bg-card border-border">
+              <CardContent className="p-6 text-center text-muted-foreground">
+                Failed to load security data
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

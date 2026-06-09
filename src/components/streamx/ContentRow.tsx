@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRef, useState, useEffect, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { ContentCard } from './ContentCard';
 import type { TMDBContent } from '@/lib/types';
 
@@ -11,9 +11,10 @@ interface ContentRowProps {
   watchlistIds?: Set<string>;
   onAddToWatchlist?: (item: TMDBContent) => void;
   onRemoveFromWatchlist?: (item: TMDBContent) => void;
+  personalized?: boolean;
 }
 
-export function ContentRow({ title, items, watchlistIds, onAddToWatchlist, onRemoveFromWatchlist }: ContentRowProps) {
+export function ContentRow({ title, items, watchlistIds, onAddToWatchlist, onRemoveFromWatchlist, personalized }: ContentRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -45,7 +46,15 @@ export function ContentRow({ title, items, watchlistIds, onAddToWatchlist, onRem
 
   return (
     <div className="relative group/row">
-      <h2 className="text-lg sm:text-xl font-bold mb-3 px-4 sm:px-6 lg:px-8">{title}</h2>
+      <h2 className="text-lg sm:text-xl font-bold mb-3 px-4 sm:px-6 lg:px-8 flex items-center gap-2">
+        {title}
+        {personalized && (
+          <>
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-xs font-normal text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">Personalized</span>
+          </>
+        )}
+      </h2>
       
       <div className="relative">
         {/* Left Arrow */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings } from 'lucide-react';
+import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,7 @@ export function Navbar() {
     { label: 'Movies', page: 'search' as const, params: { type: 'movie' } },
     { label: 'TV Shows', page: 'search' as const, params: { type: 'tv' } },
     { label: 'My List', page: 'watchlist' as const },
+    { label: 'Favorites', page: 'favorites' as const, icon: Heart },
   ];
 
   return (
@@ -94,12 +95,13 @@ export function Navbar() {
                 <button
                   key={link.label}
                   onClick={() => navigate(link.page, link.params)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${
                     currentPage === link.page 
                       ? 'text-white font-medium' 
                       : 'text-gray-300 hover:text-white'
                   }`}
                 >
+                  {link.icon && <link.icon className="h-3.5 w-3.5" />}
                   {link.label}
                 </button>
               ))}
@@ -216,6 +218,9 @@ export function Navbar() {
                           </button>
                           <button onClick={() => { navigate('watchlist'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                             <Bookmark className="h-4 w-4" /> My List
+                          </button>
+                          <button onClick={() => { navigate('favorites'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
+                            <Heart className="h-4 w-4" /> Favorites
                           </button>
                           {user?.role === 'admin' && (
                             <button onClick={() => { navigate('admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">

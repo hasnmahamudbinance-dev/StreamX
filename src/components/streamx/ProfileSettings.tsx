@@ -1097,6 +1097,32 @@ export function ProfileSettings() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Advanced Security */}
+          <Card className="bg-card border-border border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Advanced Security Settings</p>
+                    <p className="text-xs text-muted-foreground">2FA, email change, activity log, profile PINs & more</p>
+                  </div>
+                </div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => navigate('security')}
+                  className="gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  Security Center
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Profiles Tab */}

@@ -3,15 +3,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Play, Plus, Check, Star, Calendar, Clock, Film, Tv,
-  Share2, ArrowLeft,
+  Share2, ArrowLeft, Heart, MessageSquare, Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/lib/store';
 import { getDetails, getImageUrl, getBackdropUrl, getProfileUrl } from '@/lib/tmdb';
 import { ContentRow } from './ContentRow';
 import { RatingsReviews } from './RatingsReviews';
 import type { TMDBMovieDetail, TMDBTVDetail, TMDBContent, WatchlistItem } from '@/lib/types';
+import { toast } from 'sonner';
 
 interface ContentDetailProps {
   mediaType: string;
@@ -23,6 +26,17 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
   const [detail, setDetail] = useState<TMDBMovieDetail | TMDBTVDetail | null>(null);
   const [fetchedKey, setFetchedKey] = useState('');
   const [inWatchlist, setInWatchlist] = useState(false);
+
+  // Favorite state
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteId, setFavoriteId] = useState<string | undefined>(undefined);
+
+  // Rating state (1-10 scale)
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [userReview, setUserReview] = useState('');
+  const [showReviewInput, setShowReviewInput] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   const currentKey = `${mediaType}-${contentId}`;
   const isLoading = fetchedKey !== currentKey;
@@ -46,6 +60,39 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
       .then(data => {
         const items: WatchlistItem[] = data.items || [];
         setInWatchlist(items.some((w: WatchlistItem) => w.contentId === contentId && w.contentType === mediaType));
+      })
+      .catch(() => {});
+  }, [isAuthenticated, contentId, mediaType]);
+
+  // Check favorite status
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch('/api/favorites/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentId, contentType: mediaType }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setIsFavorited(data.isFavorite || false);
+        setFavoriteId(data.favoriteId);
+      })
+      .catch(() => {});
+  }, [isAuthenticated, contentId, mediaType]);
+
+  // Fetch user's existing rating
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch(`/api/ratings?contentId=${encodeURIComponent(contentId)}&contentType=${encodeURIComponent(mediaType)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.ratings?.userRating) {
+          setUserRating(data.ratings.userRating);
+        }
+        if (data.ratings?.userReview) {
+          setUserReview(data.ratings.userReview);
+          setShowReviewInput(true);
+        }
       })
       .catch(() => {});
   }, [isAuthenticated, contentId, mediaType]);
@@ -95,6 +142,124 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
       } catch {}
     }
   }, [isAuthenticated, inWatchlist, detail, contentId, mediaType, title, date]);
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (!isAuthenticated) {
+      navigate('login');
+      return;
+    }
+
+    if (isFavorited && favoriteId) {
+      try {
+        const res = await fetch(`/api/favorites/${favoriteId}`, { method: 'DELETE' });
+        if (res.ok) {
+          setIsFavorited(false);
+          setFavoriteId(undefined);
+          toast.success('Removed from favorites');
+        }
+      } catch {
+        toast.error('Failed to remove from favorites');
+      }
+    } else {
+      try {
+        const res = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentId, contentType: mediaType }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsFavorited(true);
+          setFavoriteId(data.item?.id);
+          toast.success('Added to favorites');
+        } else if (res.status === 409) {
+          toast.info('Already in favorites');
+        }
+      } catch {
+        toast.error('Failed to add to favorites');
+      }
+    }
+  }, [isAuthenticated, isFavorited, favoriteId, contentId, mediaType, navigate]);
+
+  const handleRate = async (score: number) => {
+    if (!isAuthenticated) {
+      navigate('login');
+      return;
+    }
+
+    setSubmittingRating(true);
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId,
+          contentType: mediaType,
+          score,
+          review: userReview || undefined,
+        }),
+      });
+      if (res.ok) {
+        setUserRating(score);
+        toast.success(`You rated this ${score}/10`);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to submit rating');
+      }
+    } catch {
+      toast.error('Failed to submit rating');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) {
+      navigate('login');
+      return;
+    }
+    if (!userReview.trim()) return;
+
+    setSubmittingRating(true);
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentId,
+          contentType: mediaType,
+          score: userRating || 5,
+          review: userReview.trim(),
+        }),
+      });
+      if (res.ok) {
+        toast.success('Review saved');
+      }
+    } catch {
+      toast.error('Failed to save review');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const handleDeleteRating = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentId, contentType: mediaType }),
+      });
+      if (res.ok) {
+        setUserRating(null);
+        setUserReview('');
+        setShowReviewInput(false);
+        toast.success('Rating removed');
+      }
+    } catch {
+      toast.error('Failed to remove rating');
+    }
+  };
 
   const trailer = detail?.videos?.results?.find(
     (v: { site: string; type: string }) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')
@@ -207,7 +372,7 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
               {trailer && (
                 <a
                   href={`https://www.youtube.com/watch?v=${trailer.key}`}
@@ -230,6 +395,14 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
                   <><Plus className="h-4 w-4" /> Add to My List</>
                 )}
               </Button>
+              <Button
+                variant="outline"
+                onClick={handleToggleFavorite}
+                className={`gap-2 ${isFavorited ? 'border-red-500/50 text-red-500 hover:bg-red-500/10' : ''}`}
+              >
+                <Heart className={`h-4 w-4 ${isFavorited ? 'fill-red-500' : ''}`} />
+                {isFavorited ? 'Favorited' : 'Favorite'}
+              </Button>
               <Button variant="outline" className="gap-2" onClick={() => {
                 if (navigator.share) {
                   navigator.share({ title, url: window.location.href });
@@ -243,6 +416,96 @@ export function ContentDetail({ mediaType, contentId }: ContentDetailProps) {
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Overview</h3>
               <p className="text-muted-foreground leading-relaxed">{detail.overview}</p>
+            </div>
+
+            {/* Your Rating Section */}
+            <div className="mb-6 p-4 rounded-lg bg-muted/20 border border-border/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                  Your Rating
+                </h3>
+                {userRating && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={handleDeleteRating}
+                  >
+                    Remove Rating
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-1 mb-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => handleRate(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    disabled={submittingRating}
+                    className="p-0.5 transition-transform hover:scale-110 focus:outline-none disabled:opacity-50"
+                    aria-label={`Rate ${star} out of 10`}
+                  >
+                    <Star
+                      className={`h-6 w-6 sm:h-7 sm:w-7 transition-colors ${
+                        star <= (hoverRating || userRating || 0)
+                          ? 'text-yellow-400 fill-yellow-400'
+                          : 'text-muted-foreground/30'
+                      }`}
+                    />
+                  </button>
+                ))}
+                {userRating && (
+                  <span className="ml-2 text-sm text-yellow-400 font-bold">{userRating}/10</span>
+                )}
+              </div>
+
+              {/* Review text */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowReviewInput(!showReviewInput)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  {userReview ? 'Edit your review' : 'Write a review'}
+                </button>
+                {showReviewInput && (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="Share your thoughts about this content..."
+                      value={userReview}
+                      onChange={e => setUserReview(e.target.value)}
+                      className="bg-background/50 min-h-[80px] resize-y text-sm"
+                      maxLength={1000}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{userReview.length}/1000</span>
+                      <Button
+                        size="sm"
+                        className="gap-1"
+                        onClick={handleSubmitReview}
+                        disabled={submittingRating || !userReview.trim()}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {submittingRating ? 'Saving...' : 'Save Review'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!isAuthenticated && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-primary p-0 h-auto mt-2"
+                  onClick={() => navigate('login')}
+                >
+                  Sign in to rate
+                </Button>
+              )}
             </div>
 
             {/* Ratings & Reviews */}

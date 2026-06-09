@@ -295,6 +295,7 @@ export type PageRoute =
   | 'movie' 
   | 'tv' 
   | 'watchlist' 
+  | 'favorites'
   | 'history'
   | 'profile' 
   | 'login' 
@@ -306,6 +307,19 @@ export type PageRoute =
   | 'player'
   | 'security'
   | 'devices';
+
+export interface FavoriteItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  createdAt: string;
+}
+
+export interface RecommendationSection {
+  title: string;
+  items: TMDBContent[];
+}
 
 export interface DeviceSession {
   id: string;

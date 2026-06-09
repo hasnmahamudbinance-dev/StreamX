@@ -20,6 +20,9 @@ model User {
   emailVerified         Boolean   @default(false)
   emailVerifiedAt       DateTime?
   status                String    @default("active") // "pending_verification", "active", "suspended", "deleted"
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorMethod       String?   // "email", "app"
+  twoFactorSecret       String?   // TOTP secret for authenticator apps
   failedLoginAttempts   Int       @default(0)
   lockedUntil           DateTime?
   createdAt             DateTime  @default(now())
@@ -36,6 +39,9 @@ model User {
   passwordResetCodes    PasswordResetCode[]
   sessions              UserSession[]
   profiles              Profile[]
+  favoriteItems         Favorite[]
+  activityLog           ActivityLog[]
+  emailChangeCodes      EmailChangeCode[]
 }
 
 model WatchlistItem {
@@ -101,7 +107,8 @@ model Rating {
   userId      String
   contentId   String
   contentType String
-  score       Int      // 1-5 stars
+  score       Int      // 1-10 scale
+  review      String?  // optional text review
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -368,6 +375,80 @@ model EmailLog {
   @@index([createdAt])
 }
 
+model Favorite {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String   // "movie", "tv"
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@index([userId])
+}
+
+model TwoFactorCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   // 6-digit code
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model RecoveryCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   // 8-character alphanumeric code
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([code])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // "login", "login_failed", "new_device", "password_change", "email_change", "2fa_enabled", "2fa_disabled", "session_removed", "profile_created", "profile_deleted", "pin_set", "pin_changed", "pin_removed"
+  deviceName  String?
+  platform    String?
+  browser     String?
+  ipAddress   String?
+  country     String?
+  details     String?  // JSON string with additional context
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model EmailChangeCode {
+  id          String   @id @default(cuid())
+  userId      String
+  newEmail    String
+  code        String   // 6-digit code
+  type        String   // "old_email", "new_email"
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
 model EmailVerificationCode {
   id        String   @id @default(cuid())
   userId    String
@@ -418,16 +499,23 @@ model UserSession {
 }
 
 model Profile {
-  id          String   @id @default(cuid())
-  userId      String
-  profileName String
-  avatar      String?
-  isKids      Boolean  @default(false)
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  userId             String
+  profileName        String
+  avatar             String?
+  isKids             Boolean  @default(false)
+  isDefault          Boolean  @default(false)
+  pin                String?  // hashed 4-digit PIN
+  maxRating          String?  // "G", "PG", "PG-13", "TV-Y", "TV-PG", etc.
+  allowedGenres      String?  // comma-separated genre IDs
+  restrictedGenres   String?  // comma-separated genre IDs
+  searchRestricted   Boolean  @default(false)
+  playbackRestricted Boolean  @default(false)
+  profileLocked      Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

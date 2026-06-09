@@ -33,6 +33,8 @@ export async function GET() {
         emailVerified: user.emailVerified,
         emailVerifiedAt: user.emailVerifiedAt,
         status: user.status,
+        twoFactorEnabled: user.twoFactorEnabled,
+        twoFactorMethod: user.twoFactorMethod,
         createdAt: user.createdAt,
       },
       profiles: user.profiles,

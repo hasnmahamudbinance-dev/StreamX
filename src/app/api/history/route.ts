@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// GET: List watch history for current user
+// GET: List watch history for current user (paginated)
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE: Remove history item(s)
+// DELETE: Clear all watch history for the user
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -101,24 +101,31 @@ export async function DELETE(req: NextRequest) {
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
-    const body = await req.json();
+
+    // Check if deleting a specific item via body
+    let body: Record<string, string> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body - clear all history
+    }
 
     if (body.contentId && body.contentType) {
-      // Delete specific item
-      await db.watchHistory.deleteMany({
+      // Delete specific item by contentId+contentType
+      const result = await db.watchHistory.deleteMany({
         where: {
           userId,
           contentId: String(body.contentId),
           contentType: body.contentType,
         },
       });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, deletedCount: result.count });
     } else {
       // Clear all history
-      await db.watchHistory.deleteMany({
+      const result = await db.watchHistory.deleteMany({
         where: { userId },
       });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, deletedCount: result.count });
     }
   } catch (error) {
     console.error("History DELETE error:", error);

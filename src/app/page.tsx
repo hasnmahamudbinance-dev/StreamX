@@ -14,7 +14,9 @@ import { ProfileSettings } from '@/components/streamx/ProfileSettings';
 import { AdminDashboard } from '@/components/streamx/AdminDashboard';
 import { PlayerPage } from '@/components/streamx/PlayerPage';
 import { WatchHistoryPage } from '@/components/streamx/WatchHistoryPage';
+import { FavoritesPage } from '@/components/streamx/FavoritesPage';
 import { DeviceManagement } from '@/components/streamx/DeviceManagement';
+import { SecuritySettings } from '@/components/streamx/SecuritySettings';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -75,8 +77,12 @@ export default function StreamXApp() {
         return currentParams.id ? <PlayerPage /> : <HomePage />;
       case 'history':
         return <WatchHistoryPage />;
+      case 'favorites':
+        return <FavoritesPage />;
       case 'devices':
         return <DeviceManagement />;
+      case 'security':
+        return <SecuritySettings />;
       default:
         return <HomePage />;
     }

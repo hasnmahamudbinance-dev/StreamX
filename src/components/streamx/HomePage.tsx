@@ -7,7 +7,7 @@ import { ContentRow } from './ContentRow';
 import { ContinueWatchingRow } from './ContinueWatchingRow';
 import { HeroSkeleton, ContentRowSkeleton } from './SkeletonComponents';
 import { getTrending, getPopular, getTopRated, getNowPlaying, getOnTheAir, getUpcoming } from '@/lib/tmdb';
-import type { TMDBContent, WatchlistItem, ProgressItem } from '@/lib/types';
+import type { TMDBContent, WatchlistItem, ProgressItem, RecommendationSection } from '@/lib/types';
 
 export function HomePage() {
   const { isAuthenticated } = useAppStore();
@@ -22,6 +22,14 @@ export function HomePage() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Personalization state
+  const [recommendations, setRecommendations] = useState<{
+    continueWatching: RecommendationSection;
+    becauseYouWatched: RecommendationSection;
+    recommendedForYou: RecommendationSection;
+    trendingNow: RecommendationSection;
+  } | null>(null);
 
   const watchlistIds = new Set(watchlistItems.map(w => `${w.contentType}-${w.contentId}`));
 
@@ -85,6 +93,19 @@ export function HomePage() {
     });
   }, [isAuthenticated]);
 
+  // Fetch personalized recommendations
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch('/api/recommendations')
+      .then(r => r.json())
+      .then(data => {
+        if (data.continueWatching || data.becauseYouWatched || data.recommendedForYou || data.trendingNow) {
+          setRecommendations(data);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
+
   const handleAddToWatchlist = useCallback(async (item: TMDBContent) => {
     if (!isAuthenticated) return;
     const mediaType = item.media_type || (item.title ? 'movie' : 'tv');
@@ -131,6 +152,13 @@ export function HomePage() {
     );
   }
 
+  // Check if we have personalized content
+  const hasContinueWatching = recommendations?.continueWatching?.items?.length > 0;
+  const hasBecauseYouWatched = recommendations?.becauseYouWatched?.items?.length > 0;
+  const hasRecommendedForYou = recommendations?.recommendedForYou?.items?.length > 0;
+  const hasTrendingPersonalized = recommendations?.trendingNow?.items?.length > 0;
+  const hasPersonalizedContent = hasContinueWatching || hasBecauseYouWatched || hasRecommendedForYou;
+
   return (
     <div className="space-y-8 pb-8">
       <HeroSection
@@ -143,6 +171,60 @@ export function HomePage() {
         <ContinueWatchingRow items={progressItems} />
       )}
 
+      {/* Personalized Sections */}
+      {isAuthenticated && hasPersonalizedContent && (
+        <>
+          {/* Continue Watching from recommendations */}
+          {hasContinueWatching && (
+            <ContentRow
+              title="Continue Watching"
+              personalized
+              items={recommendations.continueWatching.items as TMDBContent[]}
+              watchlistIds={watchlistIds}
+              onAddToWatchlist={handleAddToWatchlist}
+              onRemoveFromWatchlist={handleRemoveFromWatchlist}
+            />
+          )}
+
+          {/* Because You Watched */}
+          {hasBecauseYouWatched && (
+            <ContentRow
+              title="Because You Watched"
+              personalized
+              items={recommendations.becauseYouWatched.items as TMDBContent[]}
+              watchlistIds={watchlistIds}
+              onAddToWatchlist={handleAddToWatchlist}
+              onRemoveFromWatchlist={handleRemoveFromWatchlist}
+            />
+          )}
+
+          {/* Recommended For You */}
+          {hasRecommendedForYou && (
+            <ContentRow
+              title="Recommended For You"
+              personalized
+              items={recommendations.recommendedForYou.items as TMDBContent[]}
+              watchlistIds={watchlistIds}
+              onAddToWatchlist={handleAddToWatchlist}
+              onRemoveFromWatchlist={handleRemoveFromWatchlist}
+            />
+          )}
+
+          {/* Trending Now (personalized - filters out already watched) */}
+          {hasTrendingPersonalized && (
+            <ContentRow
+              title="Trending Now"
+              personalized
+              items={recommendations.trendingNow.items as TMDBContent[]}
+              watchlistIds={watchlistIds}
+              onAddToWatchlist={handleAddToWatchlist}
+              onRemoveFromWatchlist={handleRemoveFromWatchlist}
+            />
+          )}
+        </>
+      )}
+
+      {/* Fallback / Standard Sections */}
       <ContentRow
         title="Trending This Week"
         items={trending}
