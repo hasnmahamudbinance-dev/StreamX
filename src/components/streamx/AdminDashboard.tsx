@@ -27,6 +27,7 @@ import {
   GripVertical, Plus, RefreshCw, Clock, CheckCircle,
   XCircle, Eye, EyeOff, Save,
   Lock, Key, Fingerprint, Monitor, Globe, Unlock,
+  CreditCard, DollarSign, TrendingUp, Download as DownloadIcon, Megaphone, Tag,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
@@ -294,6 +295,29 @@ export function AdminDashboard() {
   const [securitySearching, setSecuritySearching] = useState(false);
   const [unlockingUserId, setUnlockingUserId] = useState<string | null>(null);
 
+  // Analytics
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [contentAnalytics, setContentAnalytics] = useState<any>(null);
+  const [exportType, setExportType] = useState('users');
+  const [exportFormat, setExportFormat] = useState('csv');
+
+  // Subscriptions
+  const [adminSubs, setAdminSubs] = useState<any[]>([]);
+  const [adminCoupons, setAdminCoupons] = useState<any[]>([]);
+  const [adminSubsLoading, setAdminSubsLoading] = useState(false);
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponDiscount, setNewCouponDiscount] = useState('');
+  const [newCouponType, setNewCouponType] = useState('percentage');
+
+  // Campaigns
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [newCampaignName, setNewCampaignName] = useState('');
+  const [newCampaignSubject, setNewCampaignSubject] = useState('');
+  const [newCampaignType, setNewCampaignType] = useState('custom');
+  const [newCampaignAudience, setNewCampaignAudience] = useState('all');
+
   // ─── Initial data fetch ─────────────────────────────────────
 
   const fetchInitialData = useCallback(async () => {
@@ -498,6 +522,69 @@ export function AdminDashboard() {
       fetchEmailLogs();
     }
   }, [isAuthenticated, user?.role, fetchEmailLogs]);
+
+  // ─── Analytics tab data ─────────────────────────────────────
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch('/api/admin/analytics/detailed');
+      const data = await res.json();
+      if (data.success) setAnalyticsData(data.data);
+    } catch {} finally { setAnalyticsLoading(false); }
+  }, []);
+
+  const fetchContentAnalytics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/analytics/content');
+      const data = await res.json();
+      if (data.success) setContentAnalytics(data.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchAnalytics();
+      fetchContentAnalytics();
+    }
+  }, [isAuthenticated, user?.role, fetchAnalytics, fetchContentAnalytics]);
+
+  // ─── Subscriptions tab data ─────────────────────────────────
+
+  const fetchAdminSubs = useCallback(async () => {
+    setAdminSubsLoading(true);
+    try {
+      const [subsRes, couponsRes] = await Promise.all([
+        fetch('/api/admin/subscriptions').then(r => r.json()),
+        fetch('/api/admin/coupons').then(r => r.json()),
+      ]);
+      setAdminSubs(subsRes.subscriptions || []);
+      setAdminCoupons(couponsRes.coupons || []);
+    } catch {} finally { setAdminSubsLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchAdminSubs();
+    }
+  }, [isAuthenticated, user?.role, fetchAdminSubs]);
+
+  // ─── Campaigns tab data ─────────────────────────────────────
+
+  const fetchCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await fetch('/api/admin/campaigns');
+      const data = await res.json();
+      setCampaigns(data.campaigns || []);
+    } catch {} finally { setCampaignsLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchCampaigns();
+    }
+  }, [isAuthenticated, user?.role, fetchCampaigns]);
 
   // ─── Users handlers ─────────────────────────────────────────
 
@@ -958,6 +1045,92 @@ export function AdminDashboard() {
     }
   };
 
+  // ─── Analytics handlers ─────────────────────────────────────
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch(`/api/admin/analytics/export?type=${exportType}&format=${exportFormat}`);
+      if (exportFormat === 'csv') {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${exportType}-export.csv`;
+        a.click(); URL.revokeObjectURL(url);
+      } else {
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${exportType}-export.json`;
+        a.click(); URL.revokeObjectURL(url);
+      }
+      toast.success('Export downloaded');
+    } catch { toast.error('Export failed'); }
+  };
+
+  // ─── Subscriptions handlers ─────────────────────────────────
+
+  const handleCreateCoupon = async () => {
+    if (!newCouponCode || !newCouponDiscount) return;
+    try {
+      const res = await fetch('/api/admin/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: newCouponCode,
+          discountType: newCouponType,
+          discountValue: parseFloat(newCouponDiscount),
+          maxUses: -1,
+          active: true,
+        }),
+      });
+      if (res.ok) {
+        setNewCouponCode(''); setNewCouponDiscount(''); setNewCouponType('percentage');
+        toast.success('Coupon created');
+        fetchAdminSubs();
+      }
+    } catch { toast.error('Failed to create coupon'); }
+  };
+
+  // ─── Campaigns handlers ─────────────────────────────────────
+
+  const handleCreateCampaign = async () => {
+    if (!newCampaignName || !newCampaignSubject) return;
+    try {
+      const res = await fetch('/api/admin/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCampaignName,
+          subject: newCampaignSubject,
+          body: '<p>Email content</p>',
+          type: newCampaignType,
+          targetAudience: newCampaignAudience,
+          status: 'draft',
+        }),
+      });
+      if (res.ok) {
+        setNewCampaignName(''); setNewCampaignSubject('');
+        toast.success('Campaign created');
+        fetchCampaigns();
+      }
+    } catch { toast.error('Failed to create campaign'); }
+  };
+
+  const handleSendCampaign = async (id: string) => {
+    try {
+      const res = await fetch('/api/admin/campaigns/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: id }),
+      });
+      if (res.ok) {
+        toast.success('Campaign sent');
+        fetchCampaigns();
+      }
+    } catch { toast.error('Failed to send campaign'); }
+  };
+
   // ─── Guard ──────────────────────────────────────────────────
 
   if (!isAuthenticated || user?.role !== 'admin') {
@@ -1000,6 +1173,9 @@ export function AdminDashboard() {
             <TabsTrigger value="backup" className="gap-1.5 text-xs sm:text-sm"><Database className="h-4 w-4" /> Backup</TabsTrigger>
             <TabsTrigger value="email" className="gap-1.5 text-xs sm:text-sm"><Mail className="h-4 w-4" /> Email</TabsTrigger>
             <TabsTrigger value="security" className="gap-1.5 text-xs sm:text-sm"><Lock className="h-4 w-4" /> Security</TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-1.5 text-xs sm:text-sm"><TrendingUp className="h-4 w-4" /> Analytics</TabsTrigger>
+            <TabsTrigger value="subscriptions" className="gap-1.5 text-xs sm:text-sm"><CreditCard className="h-4 w-4" /> Subscriptions</TabsTrigger>
+            <TabsTrigger value="campaigns" className="gap-1.5 text-xs sm:text-sm"><Megaphone className="h-4 w-4" /> Campaigns</TabsTrigger>
           </TabsList>
         </div>
 
@@ -2381,6 +2557,524 @@ export function AdminDashboard() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ── Analytics Tab ── */}
+        <TabsContent value="analytics">
+          <div className="space-y-6">
+            {analyticsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : analyticsData ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <Users className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.dau ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">DAU</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <Users className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.mau ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">MAU</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <Users className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.totalUsers ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">Total Users</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.newUsersToday ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">New Today</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.newUsersThisWeek ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">New This Week</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.newUsersThisMonth ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">New This Month</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <CreditCard className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">{analyticsData.activeSubscriptions ?? 0}</p>
+                      <p className="text-sm text-muted-foreground">Active Subscriptions</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <DollarSign className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
+                      <p className="text-2xl font-bold">${(analyticsData.revenue ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">Revenue</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <Badge variant="outline" className="text-red-500 border-red-500/30">
+                        {(analyticsData.churnRate ?? 0).toFixed(1)}%
+                      </Badge>
+                      <p className="text-sm text-muted-foreground mt-2">Churn Rate</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-4 text-center">
+                      <Badge variant="outline" className="text-emerald-500 border-emerald-500/30">
+                        {(analyticsData.retentionRate ?? 0).toFixed(1)}%
+                      </Badge>
+                      <p className="text-sm text-muted-foreground mt-2">Retention Rate</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Data Export */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DownloadIcon className="h-5 w-5" /> Data Export
+                    </CardTitle>
+                    <CardDescription>Export platform data in CSV or JSON format</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="space-y-2">
+                        <Label>Type</Label>
+                        <Select value={exportType} onValueChange={setExportType}>
+                          <SelectTrigger className="w-[160px] bg-secondary border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="users">Users</SelectItem>
+                            <SelectItem value="content">Content</SelectItem>
+                            <SelectItem value="revenue">Revenue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Format</Label>
+                        <Select value={exportFormat} onValueChange={setExportFormat}>
+                          <SelectTrigger className="w-[160px] bg-secondary border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="csv">CSV</SelectItem>
+                            <SelectItem value="json">JSON</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleExport} className="gap-2">
+                        <DownloadIcon className="h-4 w-4" /> Export
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Content Analytics */}
+                {contentAnalytics && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card className="bg-card border-border">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Film className="h-5 w-5" /> Most Watched Movies
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>#</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead className="text-right">Views</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {(contentAnalytics.mostWatchedMovies || []).map((m: any, i: number) => (
+                                <TableRow key={m.id || i}>
+                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="font-medium">{m.title}</TableCell>
+                                  <TableCell className="text-right">{m.views}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-card border-border">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Film className="h-5 w-5" /> Most Watched TV Shows
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>#</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead className="text-right">Views</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {(contentAnalytics.mostWatchedTVShows || []).map((s: any, i: number) => (
+                                <TableRow key={s.id || i}>
+                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="font-medium">{s.title}</TableCell>
+                                  <TableCell className="text-right">{s.views}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card className="bg-card border-border">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  Failed to load analytics data
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Subscriptions Tab ── */}
+        <TabsContent value="subscriptions">
+          <div className="space-y-6">
+            {adminSubsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" /> Subscriptions
+                    </CardTitle>
+                    <CardDescription>All user subscriptions on the platform</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User Email</TableHead>
+                            <TableHead>Plan</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Period End</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {adminSubs.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                No subscriptions found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            adminSubs.map((sub: any) => (
+                              <TableRow key={sub.id}>
+                                <TableCell className="font-medium">{sub.user?.email || 'Unknown'}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{sub.plan?.displayName || sub.plan?.name || 'Unknown'}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      sub.status === 'active' ? 'border-emerald-500/50 text-emerald-500' :
+                                      sub.status === 'trial' ? 'border-amber-500/50 text-amber-500' :
+                                      sub.status === 'cancelled' ? 'border-red-500/50 text-red-500' :
+                                      'border-muted-foreground/30 text-muted-foreground'
+                                    }
+                                  >
+                                    {sub.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button size="sm" variant="outline" onClick={() => { navigate('billing'); }}>
+                                    View
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Coupons Management */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Tag className="h-5 w-5" /> Coupons
+                    </CardTitle>
+                    <CardDescription>Manage discount coupons for subscriptions</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Uses</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {adminCoupons.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                                No coupons found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            adminCoupons.map((coupon: any) => (
+                              <TableRow key={coupon.id}>
+                                <TableCell className="font-mono font-medium">{coupon.code}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="text-xs">{coupon.discountType}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}
+                                </TableCell>
+                                <TableCell className="text-sm">{coupon.timesUsed ?? 0}/{coupon.maxUses === -1 ? '∞' : coupon.maxUses}</TableCell>
+                                <TableCell>
+                                  <Badge variant={coupon.active ? 'default' : 'outline'}>
+                                    {coupon.active ? 'Active' : 'Inactive'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <p className="text-sm font-medium mb-3">Create New Coupon</p>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Code</Label>
+                          <Input
+                            value={newCouponCode}
+                            onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                            placeholder="SAVE20"
+                            className="w-32 bg-secondary border-border"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Type</Label>
+                          <Select value={newCouponType} onValueChange={setNewCouponType}>
+                            <SelectTrigger className="w-[140px] bg-secondary border-border">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percentage">Percentage</SelectItem>
+                              <SelectItem value="fixed">Fixed Amount</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Value</Label>
+                          <Input
+                            value={newCouponDiscount}
+                            onChange={(e) => setNewCouponDiscount(e.target.value)}
+                            placeholder={newCouponType === 'percentage' ? '20' : '5.00'}
+                            type="number"
+                            className="w-24 bg-secondary border-border"
+                          />
+                        </div>
+                        <Button onClick={handleCreateCoupon} disabled={!newCouponCode || !newCouponDiscount}>
+                          <Plus className="h-4 w-4 mr-1" /> Create
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Campaigns Tab ── */}
+        <TabsContent value="campaigns">
+          <div className="space-y-6">
+            {campaignsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Megaphone className="h-5 w-5" /> Email Campaigns
+                    </CardTitle>
+                    <CardDescription>Manage email marketing campaigns</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Audience</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Recipients</TableHead>
+                            <TableHead>Opens</TableHead>
+                            <TableHead>Clicks</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {campaigns.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                No campaigns found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            campaigns.map((c: any) => (
+                              <TableRow key={c.id}>
+                                <TableCell className="font-medium">{c.name}</TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="text-xs">{c.type?.replace(/_/g, ' ')}</Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">{c.targetAudience}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      c.status === 'sent' ? 'border-emerald-500/50 text-emerald-500' :
+                                      c.status === 'draft' ? 'border-amber-500/50 text-amber-500' :
+                                      c.status === 'sending' ? 'border-blue-500/50 text-blue-500' :
+                                      'border-muted-foreground/30 text-muted-foreground'
+                                    }
+                                  >
+                                    {c.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">{c.recipientCount ?? '—'}</TableCell>
+                                <TableCell className="text-sm">{c.openCount ?? 0}</TableCell>
+                                <TableCell className="text-sm">{c.clickCount ?? 0}</TableCell>
+                                <TableCell className="text-right">
+                                  {c.status === 'draft' && (
+                                    <Button size="sm" variant="outline" onClick={() => handleSendCampaign(c.id)}>
+                                      <Send className="h-3 w-3 mr-1" /> Send
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Create Campaign */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Plus className="h-5 w-5" /> Create Campaign
+                    </CardTitle>
+                    <CardDescription>Create a new email marketing campaign</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Campaign Name</Label>
+                        <Input
+                          value={newCampaignName}
+                          onChange={(e) => setNewCampaignName(e.target.value)}
+                          placeholder="Weekly Recommendations"
+                          className="bg-secondary border-border"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Subject Line</Label>
+                        <Input
+                          value={newCampaignSubject}
+                          onChange={(e) => setNewCampaignSubject(e.target.value)}
+                          placeholder="Check out what's new this week!"
+                          className="bg-secondary border-border"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Campaign Type</Label>
+                        <Select value={newCampaignType} onValueChange={setNewCampaignType}>
+                          <SelectTrigger className="bg-secondary border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weekly_recommendations">Weekly Recommendations</SelectItem>
+                            <SelectItem value="watchlist_reminder">Watchlist Reminder</SelectItem>
+                            <SelectItem value="new_releases">New Releases</SelectItem>
+                            <SelectItem value="continue_watching">Continue Watching</SelectItem>
+                            <SelectItem value="custom">Custom</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Target Audience</Label>
+                        <Select value={newCampaignAudience} onValueChange={setNewCampaignAudience}>
+                          <SelectTrigger className="bg-secondary border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            <SelectItem value="free">Free Users</SelectItem>
+                            <SelectItem value="premium">Premium Users</SelectItem>
+                            <SelectItem value="inactive">Inactive Users</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <Button onClick={handleCreateCampaign} disabled={!newCampaignName || !newCampaignSubject}>
+                        <Plus className="h-4 w-4 mr-1" /> Create Campaign
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

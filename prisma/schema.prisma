@@ -42,6 +42,9 @@ model User {
   favoriteItems         Favorite[]
   activityLog           ActivityLog[]
   emailChangeCodes      EmailChangeCode[]
+  subscription          Subscription?
+  downloads             Download[]
+  pushTokens            PushToken[]
 }
 
 model WatchlistItem {
@@ -229,6 +232,7 @@ model UploadedContent {
   analytics      ContentAnalytics[]
   schedules      ContentSchedule[]
   homepageItems  HomepageSectionItem[]
+  audioTracks    AudioTrack[]
 
   @@index([status])
   @@index([type])
@@ -518,4 +522,178 @@ model Profile {
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ============ Subscription & Monetization ============
+
+model SubscriptionPlan {
+  id                String   @id @default(cuid())
+  name              String   @unique // "Free", "Premium", "Family"
+  displayName       String
+  description       String?
+  price             Float    @default(0)
+  currency          String   @default("USD")
+  interval          String   @default("month") // "month", "year"
+  trialDays         Int      @default(0)
+  maxResolution     String   @default("720p") // "480p", "720p", "1080p", "4k"
+  maxDevices        Int      @default(1)
+  maxProfiles       Int      @default(1)
+  allowDownloads    Boolean  @default(false)
+  allowOffline      Boolean  @default(false)
+  features          String?  // JSON string of feature list
+  stripePriceId     String?  // Stripe price ID
+  active            Boolean  @default(true)
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions     Subscription[]
+
+  @@index([active])
+  @@index([order])
+}
+
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  planId            String
+  status            String   @default("active") // "trial", "active", "past_due", "cancelled", "expired"
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd  DateTime
+  trialEnd          DateTime?
+  cancelledAt       DateTime?
+  cancelAtPeriodEnd Boolean  @default(false)
+  stripeSubscriptionId String?
+  stripeCustomerId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan  @relation(fields: [planId], references: [id])
+  payments          Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  amount            Float
+  currency          String   @default("USD")
+  status            String   @default("pending") // "pending", "completed", "failed", "refunded"
+  provider          String   @default("stripe") // "stripe", "google_play"
+  providerPaymentId String?  // Stripe payment intent ID etc
+  description       String?
+  invoiceUrl        String?
+  createdAt         DateTime @default(now())
+
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Coupon {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  description       String?
+  discountType      String   // "percentage", "fixed"
+  discountValue     Float
+  maxUses           Int      @default(-1) // -1 = unlimited
+  usedCount         Int      @default(0)
+  validFrom         DateTime @default(now())
+  validUntil        DateTime?
+  planId            String?  // null = applies to all plans
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([code])
+  @@index([active])
+}
+
+// ============ Downloads & Offline ============
+
+model Download {
+  id                String   @id @default(cuid())
+  userId            String
+  contentId         String
+  contentType       String   // "movie", "tv"
+  title             String
+  posterPath        String?
+  seasonNumber      Int?
+  episodeNumber     Int?
+  quality           String   @default("high") // "low", "medium", "high"
+  fileSize          Int      @default(0) // bytes
+  status            String   @default("pending") // "pending", "downloading", "completed", "failed", "expired"
+  downloadPath      String?
+  expiresAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType, seasonNumber, episodeNumber])
+  @@index([userId])
+  @@index([status])
+}
+
+// ============ Push Notifications ============
+
+model PushToken {
+  id                String   @id @default(cuid())
+  userId            String
+  token             String   @unique
+  platform          String?  // "web", "android", "ios"
+  deviceId          String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+// ============ Email Campaigns ============
+
+model EmailCampaign {
+  id                String   @id @default(cuid())
+  name              String
+  subject           String
+  body              String   // HTML body
+  type              String   @default("custom") // "weekly_recommendations", "watchlist_reminder", "new_releases", "continue_watching", "custom"
+  targetAudience    String   @default("all") // "all", "free", "premium", "inactive"
+  status            String   @default("draft") // "draft", "scheduled", "sending", "sent", "failed"
+  scheduledAt       DateTime?
+  sentAt            DateTime?
+  recipientCount    Int      @default(0)
+  openCount         Int      @default(0)
+  clickCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([type])
+}
+
+// ============ Audio Tracks ============
+
+model AudioTrack {
+  id                String   @id @default(cuid())
+  contentId         String
+  episodeId         String?
+  language          String   // "en", "bn", "hi", "ar", etc.
+  label             String   // "English", "Bangla", "Hindi"
+  url               String?  // URL to audio track / HLS with this audio
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  content           UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
 }

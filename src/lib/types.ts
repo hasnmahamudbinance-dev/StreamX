@@ -306,7 +306,12 @@ export type PageRoute =
   | 'admin'
   | 'player'
   | 'security'
-  | 'devices';
+  | 'devices'
+  | 'profiles'
+  | 'pricing'
+  | 'billing'
+  | 'downloads'
+  | 'notifications';
 
 export interface FavoriteItem {
   id: string;
@@ -340,8 +345,136 @@ export interface UserProfile {
   avatar: string | null;
   isKids: boolean;
   isDefault: boolean;
+  pin: string | null;
+  maxRating: string | null;
+  allowedGenres: string | null;
+  restrictedGenres: string | null;
+  searchRestricted: boolean;
+  playbackRestricted: boolean;
+  profileLocked: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  interval: string;
+  trialDays: number;
+  maxResolution: string;
+  maxDevices: number;
+  maxProfiles: number;
+  allowDownloads: boolean;
+  allowOffline: boolean;
+  features: string | null;
+  active: boolean;
+  order: number;
+}
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  trialEnd: string | null;
+  cancelledAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  plan: SubscriptionPlan;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  subscriptionId: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  provider: string;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface DownloadItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  title: string;
+  posterPath: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
+  quality: string;
+  fileSize: number;
+  status: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface EmailCampaignItem {
+  id: string;
+  name: string;
+  subject: string;
+  type: string;
+  targetAudience: string;
+  status: string;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  recipientCount: number;
+  openCount: number;
+  clickCount: number;
+  createdAt: string;
+}
+
+export interface CouponItem {
+  id: string;
+  code: string;
+  description: string | null;
+  discountType: string;
+  discountValue: number;
+  maxUses: number;
+  usedCount: number;
+  validFrom: string;
+  validUntil: string | null;
+  planId: string | null;
+  active: boolean;
+}
+
+export interface AnalyticsData {
+  dau: number;
+  mau: number;
+  totalUsers: number;
+  totalWatchTime: number;
+  avgCompletionRate: number;
+  retentionRate: number;
+  churnRate: number;
+  newUsersToday: number;
+  newUsersThisWeek: number;
+  newUsersThisMonth: number;
+  activeSubscriptions: number;
+  revenue: number;
+}
+
+export interface ContentAnalyticsData {
+  mostWatchedMovies: Array<{ id: string; title: string; views: number; watchTime: number }>;
+  mostWatchedTV: Array<{ id: string; title: string; views: number; watchTime: number }>;
+  topGenres: Array<{ genre: string; count: number }>;
+  searchTrends: Array<{ query: string; count: number }>;
+}
+
+export interface AudioTrackItem {
+  id: string;
+  contentId: string;
+  episodeId: string | null;
+  language: string;
+  label: string;
+  url: string | null;
+  isDefault: boolean;
 }
 
 export interface AppState {
@@ -352,10 +485,12 @@ export interface AppState {
   isLoading: boolean;
   notifications: NotificationItem[];
   unreadCount: number;
+  activeProfile: UserProfile | null;
   
   navigate: (page: PageRoute, params?: Record<string, string>) => void;
   setUser: (user: UserSession | null) => void;
   setLoading: (loading: boolean) => void;
+  setActiveProfile: (profile: UserProfile | null) => void;
   setNotifications: (notifications: NotificationItem[]) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;

@@ -17,6 +17,11 @@ import { WatchHistoryPage } from '@/components/streamx/WatchHistoryPage';
 import { FavoritesPage } from '@/components/streamx/FavoritesPage';
 import { DeviceManagement } from '@/components/streamx/DeviceManagement';
 import { SecuritySettings } from '@/components/streamx/SecuritySettings';
+import { ProfileSelectPage } from '@/components/streamx/ProfileSelectPage';
+import { PricingPage } from '@/components/streamx/PricingPage';
+import { BillingPage } from '@/components/streamx/BillingPage';
+import { DownloadsPage } from '@/components/streamx/DownloadsPage';
+import { NotificationCenterPage } from '@/components/streamx/NotificationCenterPage';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -83,23 +88,34 @@ export default function StreamXApp() {
         return <DeviceManagement />;
       case 'security':
         return <SecuritySettings />;
+      case 'profiles':
+        return <ProfileSelectPage />;
+      case 'pricing':
+        return <PricingPage />;
+      case 'billing':
+        return <BillingPage />;
+      case 'downloads':
+        return <DownloadsPage />;
+      case 'notifications':
+        return <NotificationCenterPage />;
       default:
         return <HomePage />;
     }
   };
 
   const isAuthPage = currentPage === 'login' || currentPage === 'register' || currentPage === 'verify-email' || currentPage === 'forgot-password' || currentPage === 'reset-password';
+  const isProfileSelect = currentPage === 'profiles';
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {!isAuthPage && <Navbar />}
+      {!isAuthPage && !isProfileSelect && <Navbar />}
       <main className="flex-1">
         {renderPage()}
       </main>
-      {!isAuthPage && <Footer />}
-      {!isAuthPage && <MobileNav />}
+      {!isAuthPage && !isProfileSelect && <Footer />}
+      {!isAuthPage && !isProfileSelect && <MobileNav />}
       {/* Bottom padding for mobile nav */}
-      {!isAuthPage && <div className="h-16 md:hidden" />}
+      {!isAuthPage && !isProfileSelect && <div className="h-16 md:hidden" />}
     </div>
   );
 }

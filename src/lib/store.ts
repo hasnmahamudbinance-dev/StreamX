@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppState, PageRoute, UserSession, NotificationItem } from './types';
+import type { AppState, PageRoute, UserSession, NotificationItem, UserProfile } from './types';
 
 function getHashRoute(): { page: PageRoute; params: Record<string, string> } {
   if (typeof window === 'undefined') return { page: 'home', params: {} };
@@ -32,6 +32,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: true,
   notifications: [],
   unreadCount: 0,
+  activeProfile: null,
 
   navigate: (page: PageRoute, params: Record<string, string> = {}) => {
     let hash = params.id ? `${page}/${params.id}` : page;
@@ -57,6 +58,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setLoading: (isLoading: boolean) => set({ isLoading }),
+
+  setActiveProfile: (profile: UserProfile | null) => {
+    set({ activeProfile: profile });
+  },
 
   setNotifications: (notifications: NotificationItem[]) => {
     set({ 
@@ -92,6 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentParams: {},
       notifications: [],
       unreadCount: 0,
+      activeProfile: null,
     });
     window.location.hash = 'home';
   },
