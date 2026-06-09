@@ -6,27 +6,14 @@ import { db } from "@/lib/db";
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user) {
       return NextResponse.json({ user: null });
     }
 
-    // Fetch fresh user data from DB
     const userId = (session.user as any).id;
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        language: true,
-        autoplay: true,
-        emailNotify: true,
-        emailVerified: true,
-        status: true,
-      },
+      include: { profiles: true },
     });
 
     if (!user) {
@@ -39,17 +26,19 @@ export async function GET() {
         email: user.email,
         name: user.name,
         role: user.role,
-        image: user.avatar,
         avatar: user.avatar,
         language: user.language,
         autoplay: user.autoplay,
         emailNotify: user.emailNotify,
         emailVerified: user.emailVerified,
+        emailVerifiedAt: user.emailVerifiedAt,
         status: user.status,
+        createdAt: user.createdAt,
       },
+      profiles: user.profiles,
     });
   } catch (error) {
-    console.error("Session error:", error);
+    console.error("Get me error:", error);
     return NextResponse.json({ user: null });
   }
 }

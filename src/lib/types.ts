@@ -173,6 +173,8 @@ export interface UserSession {
   language?: string;
   autoplay?: boolean;
   emailNotify?: boolean;
+  emailVerified?: boolean;
+  status?: string;
 }
 
 export interface RatingData {
@@ -297,8 +299,36 @@ export type PageRoute =
   | 'profile' 
   | 'login' 
   | 'register'
+  | 'verify-email'
+  | 'forgot-password'
+  | 'reset-password'
   | 'admin'
-  | 'player';
+  | 'player'
+  | 'security'
+  | 'devices';
+
+export interface DeviceSession {
+  id: string;
+  userId: string;
+  token: string;
+  deviceName: string | null;
+  platform: string | null;
+  browser: string | null;
+  ipAddress: string | null;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+export interface UserProfile {
+  id: string;
+  userId: string;
+  profileName: string;
+  avatar: string | null;
+  isKids: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface AppState {
   currentPage: PageRoute;

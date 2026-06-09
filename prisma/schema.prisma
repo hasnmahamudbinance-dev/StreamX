@@ -8,26 +8,34 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  password     String
-  role         String   @default("user")
-  avatar       String?
-  language     String   @default("en")
-  autoplay     Boolean  @default(true)
-  emailNotify   Boolean  @default(true)
-  emailVerified Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String
+  password              String
+  role                  String    @default("user")
+  avatar                String?
+  language              String    @default("en")
+  autoplay              Boolean   @default(true)
+  emailNotify           Boolean   @default(true)
+  emailVerified         Boolean   @default(false)
+  emailVerifiedAt       DateTime?
+  status                String    @default("active") // "pending_verification", "active", "suspended", "deleted"
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  watchlistItems    WatchlistItem[]
-  progressItems     PlaybackProgress[]
-  watchHistory      WatchHistory[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  ratings           Rating[]
-  reviews           Review[]
+  watchlistItems        WatchlistItem[]
+  progressItems         PlaybackProgress[]
+  watchHistory          WatchHistory[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  ratings               Rating[]
+  reviews               Review[]
+  verificationCodes     EmailVerificationCode[]
+  passwordResetCodes    PasswordResetCode[]
+  sessions              UserSession[]
+  profiles              Profile[]
 }
 
 model WatchlistItem {
@@ -358,4 +366,68 @@ model EmailLog {
 
   @@index([to])
   @@index([createdAt])
+}
+
+model EmailVerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   // 6-digit code
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model PasswordResetCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   // 6-digit code
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model UserSession {
+  id              String   @id @default(cuid())
+  userId          String
+  token           String   @unique // session token / refresh token hash
+  deviceName      String?
+  platform        String?  // "web", "android", "ios"
+  browser         String?
+  ipAddress       String?
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([lastActiveAt])
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String
+  profileName String
+  avatar      String?
+  isKids      Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

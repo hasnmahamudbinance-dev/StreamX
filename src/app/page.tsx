@@ -14,6 +14,7 @@ import { ProfileSettings } from '@/components/streamx/ProfileSettings';
 import { AdminDashboard } from '@/components/streamx/AdminDashboard';
 import { PlayerPage } from '@/components/streamx/PlayerPage';
 import { WatchHistoryPage } from '@/components/streamx/WatchHistoryPage';
+import { DeviceManagement } from '@/components/streamx/DeviceManagement';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -57,9 +58,15 @@ export default function StreamXApp() {
       case 'watchlist':
         return <WatchlistPage />;
       case 'login':
-        return <AuthPage mode="login" />;
+        return <AuthPage mode="login" initialEmail={currentParams.email} />;
       case 'register':
-        return <AuthPage mode="register" />;
+        return <AuthPage mode="register" initialEmail={currentParams.email} />;
+      case 'verify-email':
+        return <AuthPage mode="verify-email" initialEmail={currentParams.email} />;
+      case 'forgot-password':
+        return <AuthPage mode="forgot-password" initialEmail={currentParams.email} />;
+      case 'reset-password':
+        return <AuthPage mode="reset-password" initialEmail={currentParams.email} />;
       case 'profile':
         return <ProfileSettings />;
       case 'admin':
@@ -68,12 +75,14 @@ export default function StreamXApp() {
         return currentParams.id ? <PlayerPage /> : <HomePage />;
       case 'history':
         return <WatchHistoryPage />;
+      case 'devices':
+        return <DeviceManagement />;
       default:
         return <HomePage />;
     }
   };
 
-  const isAuthPage = currentPage === 'login' || currentPage === 'register';
+  const isAuthPage = currentPage === 'login' || currentPage === 'register' || currentPage === 'verify-email' || currentPage === 'forgot-password' || currentPage === 'reset-password';
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
