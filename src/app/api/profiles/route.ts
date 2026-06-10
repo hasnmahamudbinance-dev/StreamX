@@ -11,10 +11,23 @@ export async function GET() {
     }
 
     const userId = (session.user as any).id;
-    const profiles = await db.profile.findMany({
+    let profiles = await db.profile.findMany({
       where: { userId },
       orderBy: { isDefault: 'desc' },
     });
+
+    // Auto-create default profile if user has none (for existing users migrated to new schema)
+    if (profiles.length === 0) {
+      const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
+      const defaultProfile = await db.profile.create({
+        data: {
+          userId,
+          profileName: userName,
+          isDefault: true,
+        },
+      });
+      profiles = [defaultProfile];
+    }
 
     return NextResponse.json({ profiles });
   } catch (error) {

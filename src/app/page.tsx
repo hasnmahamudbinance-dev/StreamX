@@ -17,6 +17,7 @@ import { WatchHistoryPage } from '@/components/streamx/WatchHistoryPage';
 import { SupportPage } from '@/components/streamx/SupportPage';
 import { PrivacyPage } from '@/components/streamx/PrivacyPage';
 import { BanglaHub } from '@/components/streamx/BanglaHub';
+import { ProfileSelectPage } from '@/components/streamx/ProfileSelectPage';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -63,8 +64,16 @@ export default function StreamXApp() {
         return <AuthPage mode="login" />;
       case 'register':
         return <AuthPage mode="register" />;
+      case 'verify-email':
+        return <AuthPage mode="verify-email" />;
+      case 'forgot-password':
+        return <AuthPage mode="forgot-password" />;
+      case 'reset-password':
+        return <AuthPage mode="reset-password" />;
       case 'profile':
         return <ProfileSettings />;
+      case 'profiles':
+        return <ProfileSelectPage />;
       case 'admin':
         return <AdminDashboard />;
       case 'player':
@@ -82,7 +91,7 @@ export default function StreamXApp() {
     }
   };
 
-  const isAuthPage = currentPage === 'login' || currentPage === 'register';
+  const isAuthPage = currentPage === 'login' || currentPage === 'register' || currentPage === 'verify-email' || currentPage === 'forgot-password' || currentPage === 'reset-password';
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">

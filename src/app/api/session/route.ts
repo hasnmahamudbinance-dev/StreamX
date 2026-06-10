@@ -17,6 +17,8 @@ export async function GET() {
         name: session.user.name,
         role: (session.user as any).role,
         image: session.user.image,
+        emailVerified: (session.user as any).emailVerified ?? false,
+        status: (session.user as any).status ?? 'active',
       },
     });
   } catch (error) {

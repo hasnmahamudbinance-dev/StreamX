@@ -195,6 +195,8 @@ export interface UserSession {
   language?: string;
   autoplay?: boolean;
   emailNotify?: boolean;
+  emailVerified?: boolean;
+  status?: string;
 }
 
 export interface RatingData {
@@ -397,6 +399,10 @@ export type PageRoute =
   | 'profile' 
   | 'login' 
   | 'register'
+  | 'verify-email'
+  | 'forgot-password'
+  | 'reset-password'
+  | 'profiles'
   | 'admin'
   | 'player'
   | 'support'
@@ -411,6 +417,7 @@ export interface AppState {
   isLoading: boolean;
   notifications: NotificationItem[];
   unreadCount: number;
+  activeProfile: any | null;
   
   navigate: (page: PageRoute, params?: Record<string, string>) => void;
   setUser: (user: UserSession | null) => void;
@@ -418,6 +425,7 @@ export interface AppState {
   setNotifications: (notifications: NotificationItem[]) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  setActiveProfile: (profile: any) => void;
   logout: () => void;
 }
 

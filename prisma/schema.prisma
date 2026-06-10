@@ -8,33 +8,45 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  password     String
-  role         String   @default("user")
-  avatar       String?
-  language     String   @default("en")
-  autoplay     Boolean  @default(true)
-  emailNotify   Boolean  @default(true)
-  emailVerified Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String
+  password              String
+  role                  String    @default("user")
+  avatar                String?
+  language              String    @default("en")
+  autoplay              Boolean   @default(true)
+  emailNotify            Boolean   @default(true)
+  emailVerified         Boolean   @default(false)
+  emailVerifiedAt       DateTime?
+  status                String    @default("active")  // "pending_verification", "active", "suspended", "deleted"
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorMethod       String?   // "email" or "app"
+  twoFactorSecret       String?   // TOTP secret for authenticator apps
+  recoveryCodes         String?   // JSON array of recovery codes
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  watchlistItems    WatchlistItem[]
-  progressItems     PlaybackProgress[]
-  watchHistory      WatchHistory[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  ratings           Rating[]
-  reviews           Review[]
-  reports           ContentReport[]  @relation("ReportSubmitter")
-  reviewedReports   ContentReport[]  @relation("ReportReviewer")
-  tickets           SupportTicket[]
-  messages          SupportMessage[]
-  behaviors         UserBehavior[]
-  searchHistory     SearchHistory[]
-  devices           UserDevice[]
+  watchlistItems        WatchlistItem[]
+  progressItems         PlaybackProgress[]
+  watchHistory          WatchHistory[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  ratings               Rating[]
+  reviews               Review[]
+  reports               ContentReport[]  @relation("ReportSubmitter")
+  reviewedReports       ContentReport[]  @relation("ReportReviewer")
+  tickets               SupportTicket[]
+  messages              SupportMessage[]
+  behaviors             UserBehavior[]
+  searchHistory         SearchHistory[]
+  devices               UserDevice[]
+  emailVerificationCodes EmailVerificationCode[]
+  passwordResetCodes    PasswordResetCode[]
+  sessions              UserSession[]
+  profiles              Profile[]
 }
 
 model WatchlistItem {
@@ -499,4 +511,72 @@ model RateLimitLog {
   @@unique([ipAddress, endpoint, windowStart])
   @@index([ipAddress])
   @@index([windowStart])
+}
+
+// ─── Authentication Models ────────────────────────────────────
+
+model EmailVerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model PasswordResetCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model UserSession {
+  id              String   @id @default(cuid())
+  userId          String
+  deviceName      String?
+  platform        String?
+  browser         String?
+  ipAddress       String?
+  refreshTokenHash String?
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String
+  profileName String
+  avatar      String?
+  isKids      Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  pin         String?  // 4-digit PIN for profile protection
+  language    String   @default("en")
+  autoplay    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

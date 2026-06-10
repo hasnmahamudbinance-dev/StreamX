@@ -32,6 +32,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: true,
   notifications: [],
   unreadCount: 0,
+  activeProfile: null,
 
   navigate: (page: PageRoute, params: Record<string, string> = {}) => {
     let hash = params.id ? `${page}/${params.id}` : page;
@@ -79,6 +80,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       notifications: state.notifications.map(n => ({ ...n, read: true })),
       unreadCount: 0,
     }));
+  },
+
+  setActiveProfile: (profile: any) => {
+    set({ activeProfile: profile });
   },
 
   logout: async () => {
