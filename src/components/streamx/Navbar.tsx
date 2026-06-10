@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings, Heart, Download, CreditCard, Users } from 'lucide-react';
+import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -73,8 +73,8 @@ export function Navbar() {
     { label: 'Home', page: 'home' as const },
     { label: 'Movies', page: 'search' as const, params: { type: 'movie' } },
     { label: 'TV Shows', page: 'search' as const, params: { type: 'tv' } },
+    { label: '🇧🇩 Bangla', page: 'bangla' as const },
     { label: 'My List', page: 'watchlist' as const },
-    { label: 'Favorites', page: 'favorites' as const, icon: Heart },
   ];
 
   return (
@@ -95,13 +95,12 @@ export function Navbar() {
                 <button
                   key={link.label}
                   onClick={() => navigate(link.page, link.params)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
                     currentPage === link.page 
                       ? 'text-white font-medium' 
                       : 'text-gray-300 hover:text-white'
                   }`}
                 >
-                  {link.icon && <link.icon className="h-3.5 w-3.5" />}
                   {link.label}
                 </button>
               ))}
@@ -172,7 +171,7 @@ export function Navbar() {
                           {notifications.length === 0 ? (
                             <div className="p-4 text-center text-muted-foreground text-sm">No notifications</div>
                           ) : (
-                            notifications.slice(0, 5).map(n => (
+                            notifications.map(n => (
                               <button
                                 key={n.id}
                                 onClick={() => handleMarkRead(n.id)}
@@ -186,16 +185,6 @@ export function Navbar() {
                             ))
                           )}
                         </ScrollArea>
-                        {notifications.length > 0 && (
-                          <div className="p-2 border-t border-border">
-                            <button
-                              onClick={() => { navigate('notifications'); setShowNotifications(false); }}
-                              className="w-full text-center text-xs text-primary hover:underline py-1"
-                            >
-                              View All Notifications
-                            </button>
-                          </div>
-                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -229,18 +218,6 @@ export function Navbar() {
                           <button onClick={() => { navigate('watchlist'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                             <Bookmark className="h-4 w-4" /> My List
                           </button>
-                          <button onClick={() => { navigate('favorites'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
-                            <Heart className="h-4 w-4" /> Favorites
-                          </button>
-                          <button onClick={() => { navigate('downloads'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
-                            <Download className="h-4 w-4" /> Downloads
-                          </button>
-                          <button onClick={() => { navigate('billing'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
-                            <CreditCard className="h-4 w-4" /> Billing
-                          </button>
-                          <button onClick={() => { navigate('profiles'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
-                            <Users className="h-4 w-4" /> Switch Profile
-                          </button>
                           {user?.role === 'admin' && (
                             <button onClick={() => { navigate('admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                               <Shield className="h-4 w-4" /> Admin
@@ -257,9 +234,6 @@ export function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => navigate('pricing')} className="text-gray-300 hover:text-white">
-                  <CreditCard className="h-4 w-4 mr-1" /> Pricing
-                </Button>
                 <Button variant="ghost" size="sm" onClick={() => navigate('login')} className="text-gray-300 hover:text-white">
                   Sign In
                 </Button>

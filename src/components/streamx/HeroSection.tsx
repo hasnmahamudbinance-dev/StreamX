@@ -111,10 +111,10 @@ export function HeroSection({ watchlistIds, onAddToWatchlist, onRemoveFromWatchl
             </p>
             <div className="flex items-center gap-3">
               <Button
-                onClick={() => navigate(mediaType as 'movie' | 'tv', { id: String(currentItem.id) })}
+                onClick={() => navigate(mediaType as 'movie' | 'tv', { id: String(currentItem.id), autoplay: '1' })}
                 className="bg-white text-black hover:bg-white/90 gap-2"
               >
-                <Play className="h-4 w-4 fill-black" /> Details
+                <Play className="h-4 w-4 fill-black" /> Play
               </Button>
               <Button
                 variant="outline"

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Plus, Check, Star, Info, Heart } from 'lucide-react';
+import { Play, Plus, Check, Star, Info } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getImageUrl, getMediaType, getContentTitle, getContentDate } from '@/lib/tmdb';
 import type { TMDBContent } from '@/lib/types';
@@ -16,60 +16,12 @@ interface ContentCardProps {
 }
 
 export function ContentCard({ item, index = 0, inWatchlist, onAddToWatchlist, onRemoveFromWatchlist }: ContentCardProps) {
-  const { navigate, isAuthenticated } = useAppStore();
+  const { navigate } = useAppStore();
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [favoriteId, setFavoriteId] = useState<string | undefined>(undefined);
   const mediaType = getMediaType(item);
   const title = getContentTitle(item);
   const date = getContentDate(item);
   const rating = item.vote_average?.toFixed(1);
-
-  // Check favorite status
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    fetch('/api/favorites/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentId: String(item.id), contentType: mediaType }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.isFavorite) {
-          setIsFavorited(true);
-          setFavoriteId(data.favoriteId);
-        }
-      })
-      .catch(() => {});
-  }, [isAuthenticated, item.id, mediaType]);
-
-  const handleToggleFavorite = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) return;
-
-    if (isFavorited && favoriteId) {
-      try {
-        const res = await fetch(`/api/favorites/${favoriteId}`, { method: 'DELETE' });
-        if (res.ok) {
-          setIsFavorited(false);
-          setFavoriteId(undefined);
-        }
-      } catch {}
-    } else {
-      try {
-        const res = await fetch('/api/favorites', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contentId: String(item.id), contentType: mediaType }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setIsFavorited(true);
-          setFavoriteId(data.item?.id);
-        }
-      } catch {}
-    }
-  };
 
   return (
     <motion.div
@@ -129,13 +81,6 @@ export function ContentCard({ item, index = 0, inWatchlist, onAddToWatchlist, on
                 <Plus className="h-3 w-3" />
               </button>
             )}
-            {/* Favorite heart button */}
-            <button
-              onClick={handleToggleFavorite}
-              className="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors pointer-events-auto"
-            >
-              <Heart className={`h-3 w-3 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
-            </button>
             <button
               onClick={(e) => { e.stopPropagation(); navigate(mediaType as 'movie' | 'tv', { id: String(item.id) }); }}
               className="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors ml-auto pointer-events-auto"
@@ -149,13 +94,6 @@ export function ContentCard({ item, index = 0, inWatchlist, onAddToWatchlist, on
         {rating && parseFloat(rating) >= 7 && (
           <div className="absolute top-2 right-2 bg-primary/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
             {rating}
-          </div>
-        )}
-
-        {/* Favorite heart indicator (always visible) */}
-        {isFavorited && (
-          <div className="absolute top-2 left-2">
-            <Heart className="h-4 w-4 text-red-500 fill-red-500 drop-shadow-lg" />
           </div>
         )}
       </div>

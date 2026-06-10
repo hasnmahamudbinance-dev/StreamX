@@ -16,8 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Film, Tv, Upload, Plus, Edit, Trash2, Search, Loader2,
   Image as ImageIcon, FileVideo, Subtitles,
-  Archive, CheckCircle, Clock, Save, Play, Eye,
-  AlertCircle, X, Progress as ProgressIcon,
+  Archive, CheckCircle, Clock, Save,
 } from 'lucide-react';
 
 interface ContentItem {
@@ -111,9 +110,6 @@ export function ContentManager() {
   const [showEpisodeDialog, setShowEpisodeDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [uploadError, setUploadError] = useState('');
   const posterInputRef = useRef<HTMLInputElement>(null);
   const backdropInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -217,57 +213,17 @@ export function ContentManager() {
 
   const handleFileUpload = async (file: File, type: string, contentId?: string, episodeId?: string) => {
     setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError('');
-    setUploadStatus(`Uploading ${type}...`);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', type);
       if (contentId) formData.append('contentId', contentId);
       if (episodeId) formData.append('episodeId', episodeId);
-      if (type === 'subtitle') {
-        const langEl = document.getElementById('sub-lang') as HTMLInputElement;
-        const labelEl = document.getElementById('sub-label') as HTMLInputElement;
-        formData.append('language', langEl?.value || 'en');
-        formData.append('label', labelEl?.value || 'English');
-      }
 
-      // Use XMLHttpRequest for progress tracking
-      const result = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/admin/upload');
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(pct);
-            if (pct >= 100) {
-              setUploadStatus(type === 'video' ? 'Processing video (HLS transcoding)...' : 'Saving file...');
-            }
-          }
-        };
-
-        xhr.onload = () => {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve({ success: true, data });
-            } else {
-              resolve({ success: false, error: data.error || 'Upload failed' });
-            }
-          } catch {
-            resolve({ success: false, error: 'Invalid response from server' });
-          }
-        };
-
-        xhr.onerror = () => resolve({ success: false, error: 'Network error' });
-        xhr.send(formData);
-      });
-
-      if (result.success) {
-        toast.success(`${type === 'video' ? 'Video uploaded & transcoded' : type + ' uploaded'} successfully`);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`${type} uploaded successfully`);
         loadContent();
         // Refresh selected item
         if (contentId) {
@@ -275,19 +231,14 @@ export function ContentManager() {
           const detailData = await detailRes.json();
           if (detailData.item) setSelectedItem(detailData.item);
         }
-        return result.data;
+        return data;
       } else {
-        setUploadError(result.error || 'Upload failed');
-        toast.error(result.error || 'Upload failed');
+        toast.error(data.error || 'Upload failed');
       }
-    } catch (err) {
-      setUploadError('Upload failed unexpectedly');
-      toast.error('Upload failed');
+    } catch {
+      // ignore
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
-      setUploadStatus('');
-      setUploadError('');
     }
   };
 
@@ -680,47 +631,12 @@ export function ContentManager() {
                       <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg">
                         <CheckCircle className="h-5 w-5 text-green-500" />
                         <div>
-                          <p className="text-sm font-medium">Video uploaded & transcoded</p>
-                          <p className="text-xs text-muted-foreground">{selectedItem.videoFormat?.toUpperCase()} • {formatFileSize(selectedItem.videoFileSize)} • {selectedItem.videoDuration > 0 ? formatDuration(selectedItem.videoDuration) : '--'}</p>
+                          <p className="text-sm font-medium">Video uploaded</p>
+                          <p className="text-xs text-muted-foreground">{selectedItem.videoFormat?.toUpperCase()} • {formatFileSize(selectedItem.videoFileSize)}</p>
                         </div>
-                        <Button size="sm" variant="outline" className="ml-auto gap-1" onClick={() => { navigate('player', { id: selectedItem.id }); }}>
-                          <Play className="h-3 w-3" /> Preview
-                        </Button>
                       </div>
                     ) : null}
-                    {isUploading && uploadStatus && (
-                      <div className="p-3 bg-yellow-500/10 rounded-lg space-y-2">
-                        <div className="flex items-center gap-2">
-                          {uploadProgress < 100 ? (
-                            <Upload className="h-4 w-4 text-yellow-500 animate-bounce" />
-                          ) : (
-                            <Loader2 className="h-4 w-4 text-yellow-500 animate-spin" />
-                          )}
-                          <p className="text-sm font-medium text-yellow-500">{uploadStatus}</p>
-                        </div>
-                        <div className="w-full bg-secondary rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
-                        {uploadProgress >= 100 && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Transcoding to HLS (480p/720p/1080p)... This may take a few minutes for large files.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {uploadError && (
-                      <div className="p-3 bg-red-500/10 rounded-lg flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-500" />
-                        <p className="text-sm text-red-500">{uploadError}</p>
-                        <button onClick={() => setUploadError('')} className="ml-auto"><X className="h-3 w-3 text-red-500" /></button>
-                      </div>
-                    )}
-                    <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm" className="hidden" onChange={e => {
+                    <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={e => {
                       const file = e.target.files?.[0];
                       if (file) handleFileUpload(file, 'video', selectedItem.id);
                     }} />
@@ -728,7 +644,7 @@ export function ContentManager() {
                       {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileVideo className="h-4 w-4" />}
                       {selectedItem.hlsMasterUrl ? 'Replace Video' : 'Upload Video'}
                     </Button>
-                    <p className="text-xs text-muted-foreground">Supported: MP4, MOV, MKV, WEBM (max 500MB). Video will be transcoded to HLS for adaptive streaming.</p>
+                    <p className="text-xs text-muted-foreground">Supported: MP4, MOV, MKV, WEBM (max 500MB)</p>
                   </div>
                 </div>
               </TabsContent>

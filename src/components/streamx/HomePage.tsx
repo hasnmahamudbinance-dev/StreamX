@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
+import { useRealtime } from '@/hooks/use-realtime';
 import { HeroSection } from './HeroSection';
 import { ContentRow } from './ContentRow';
 import { ContinueWatchingRow } from './ContinueWatchingRow';
 import { HeroSkeleton, ContentRowSkeleton } from './SkeletonComponents';
 import { getTrending, getPopular, getTopRated, getNowPlaying, getOnTheAir, getUpcoming } from '@/lib/tmdb';
-import type { TMDBContent, WatchlistItem, ProgressItem, RecommendationSection } from '@/lib/types';
+import { getBanglaPopularMovies, getBanglaPopularTV } from '@/lib/bangla';
+import type { TMDBContent, WatchlistItem, ProgressItem, RecommendationCategory } from '@/lib/types';
 
 export function HomePage() {
   const { isAuthenticated } = useAppStore();
+  const { emitWatchlistAdd, emitWatchlistRemove } = useRealtime();
   const [trending, setTrending] = useState<TMDBContent[]>([]);
   const [popularMovies, setPopularMovies] = useState<TMDBContent[]>([]);
   const [popularTV, setPopularTV] = useState<TMDBContent[]>([]);
@@ -22,14 +25,10 @@ export function HomePage() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Personalization state
-  const [recommendations, setRecommendations] = useState<{
-    continueWatching: RecommendationSection;
-    becauseYouWatched: RecommendationSection;
-    recommendedForYou: RecommendationSection;
-    trendingNow: RecommendationSection;
-  } | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationCategory[]>([]);
+  const [recsFetched, setRecsFetched] = useState(false);
+  const [banglaMovies, setBanglaMovies] = useState<TMDBContent[]>([]);
+  const [banglaTV, setBanglaTV] = useState<TMDBContent[]>([]);
 
   const watchlistIds = new Set(watchlistItems.map(w => `${w.contentType}-${w.contentId}`));
 
@@ -51,6 +50,19 @@ export function HomePage() {
       setOnTheAir(onTheAirData.results || []);
       setUpcoming(upcomingData.results || []);
       setIsLoading(false);
+    });
+
+    // Fetch Bangla content in background
+    Promise.all([
+      getBanglaPopularMovies().catch(() => ({ results: [] })),
+      getBanglaPopularTV().catch(() => ({ results: [] })),
+    ]).then(([bnMoviesData, bnTVData]) => {
+      const filterBn = (items: any[]) => (items as TMDBContent[]).filter(item => {
+        const lang = (item as any).original_language;
+        return lang === 'bn' || !lang;
+      }).filter((item: TMDBContent) => item.poster_path);
+      setBanglaMovies(filterBn(bnMoviesData.results || []));
+      setBanglaTV(filterBn(bnTVData.results || []));
     });
   }, []);
 
@@ -93,17 +105,18 @@ export function HomePage() {
     });
   }, [isAuthenticated]);
 
-  // Fetch personalized recommendations
+  // Fetch AI recommendations when authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
     fetch('/api/recommendations')
       .then(r => r.json())
       .then(data => {
-        if (data.continueWatching || data.becauseYouWatched || data.recommendedForYou || data.trendingNow) {
-          setRecommendations(data);
+        if (data.categories) {
+          setRecommendations(data.categories);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setRecsFetched(true));
   }, [isAuthenticated]);
 
   const handleAddToWatchlist = useCallback(async (item: TMDBContent) => {
@@ -126,9 +139,16 @@ export function HomePage() {
       if (res.ok) {
         const data = await res.json();
         setWatchlistItems(prev => [...prev, data.item]);
+        // Emit real-time sync event
+        emitWatchlistAdd({
+          contentId: String(item.id),
+          contentType: mediaType,
+          title: item.title || item.name,
+          posterPath: item.poster_path || undefined,
+        });
       }
     } catch {}
-  }, [isAuthenticated]);
+  }, [isAuthenticated, emitWatchlistAdd]);
 
   const handleRemoveFromWatchlist = useCallback(async (item: TMDBContent) => {
     if (!isAuthenticated) return;
@@ -137,9 +157,14 @@ export function HomePage() {
       const res = await fetch(`/api/watchlist?contentId=${item.id}&contentType=${mediaType}`, { method: 'DELETE' });
       if (res.ok) {
         setWatchlistItems(prev => prev.filter(w => !(w.contentId === String(item.id) && w.contentType === mediaType)));
+        // Emit real-time sync event
+        emitWatchlistRemove({
+          contentId: String(item.id),
+          contentType: mediaType,
+        });
       }
     } catch {}
-  }, [isAuthenticated]);
+  }, [isAuthenticated, emitWatchlistRemove]);
 
   if (isLoading) {
     return (
@@ -151,13 +176,6 @@ export function HomePage() {
       </div>
     );
   }
-
-  // Check if we have personalized content
-  const hasContinueWatching = recommendations?.continueWatching?.items?.length > 0;
-  const hasBecauseYouWatched = recommendations?.becauseYouWatched?.items?.length > 0;
-  const hasRecommendedForYou = recommendations?.recommendedForYou?.items?.length > 0;
-  const hasTrendingPersonalized = recommendations?.trendingNow?.items?.length > 0;
-  const hasPersonalizedContent = hasContinueWatching || hasBecauseYouWatched || hasRecommendedForYou;
 
   return (
     <div className="space-y-8 pb-8">
@@ -171,60 +189,6 @@ export function HomePage() {
         <ContinueWatchingRow items={progressItems} />
       )}
 
-      {/* Personalized Sections */}
-      {isAuthenticated && hasPersonalizedContent && (
-        <>
-          {/* Continue Watching from recommendations */}
-          {hasContinueWatching && (
-            <ContentRow
-              title="Continue Watching"
-              personalized
-              items={recommendations.continueWatching.items as TMDBContent[]}
-              watchlistIds={watchlistIds}
-              onAddToWatchlist={handleAddToWatchlist}
-              onRemoveFromWatchlist={handleRemoveFromWatchlist}
-            />
-          )}
-
-          {/* Because You Watched */}
-          {hasBecauseYouWatched && (
-            <ContentRow
-              title="Because You Watched"
-              personalized
-              items={recommendations.becauseYouWatched.items as TMDBContent[]}
-              watchlistIds={watchlistIds}
-              onAddToWatchlist={handleAddToWatchlist}
-              onRemoveFromWatchlist={handleRemoveFromWatchlist}
-            />
-          )}
-
-          {/* Recommended For You */}
-          {hasRecommendedForYou && (
-            <ContentRow
-              title="Recommended For You"
-              personalized
-              items={recommendations.recommendedForYou.items as TMDBContent[]}
-              watchlistIds={watchlistIds}
-              onAddToWatchlist={handleAddToWatchlist}
-              onRemoveFromWatchlist={handleRemoveFromWatchlist}
-            />
-          )}
-
-          {/* Trending Now (personalized - filters out already watched) */}
-          {hasTrendingPersonalized && (
-            <ContentRow
-              title="Trending Now"
-              personalized
-              items={recommendations.trendingNow.items as TMDBContent[]}
-              watchlistIds={watchlistIds}
-              onAddToWatchlist={handleAddToWatchlist}
-              onRemoveFromWatchlist={handleRemoveFromWatchlist}
-            />
-          )}
-        </>
-      )}
-
-      {/* Fallback / Standard Sections */}
       <ContentRow
         title="Trending This Week"
         items={trending}
@@ -290,6 +254,44 @@ export function HomePage() {
           onRemoveFromWatchlist={handleRemoveFromWatchlist}
         />
       )}
+
+      {/* Bangla Content Section */}
+      {banglaMovies.length > 0 && (
+        <ContentRow
+          title="🇧🇩 Popular Bangla Movies"
+          items={banglaMovies}
+          watchlistIds={watchlistIds}
+          onAddToWatchlist={handleAddToWatchlist}
+          onRemoveFromWatchlist={handleRemoveFromWatchlist}
+        />
+      )}
+      {banglaTV.length > 0 && (
+        <ContentRow
+          title="🇧🇩 Popular Bangla Series"
+          items={banglaTV}
+          watchlistIds={watchlistIds}
+          onAddToWatchlist={handleAddToWatchlist}
+          onRemoveFromWatchlist={handleRemoveFromWatchlist}
+        />
+      )}
+
+      {/* AI Recommendations Section */}
+      {isAuthenticated && !recsFetched && (
+        <>
+          <ContentRowSkeleton />
+          <ContentRowSkeleton />
+        </>
+      )}
+      {isAuthenticated && recommendations.map(cat => (
+        <ContentRow
+          key={cat.id}
+          title={cat.title}
+          items={cat.items}
+          watchlistIds={watchlistIds}
+          onAddToWatchlist={handleAddToWatchlist}
+          onRemoveFromWatchlist={handleRemoveFromWatchlist}
+        />
+      ))}
     </div>
   );
 }

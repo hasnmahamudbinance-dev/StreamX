@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppStore } from '@/lib/store';
-import { Home, Search, Bookmark, User, Clock, Heart } from 'lucide-react';
+import { Home, Search, Bookmark, User, Clock, Globe } from 'lucide-react';
 
 export function MobileNav() {
   const { navigate, currentPage, isAuthenticated } = useAppStore();
@@ -9,7 +9,7 @@ export function MobileNav() {
   const navItems = [
     { icon: Home, label: 'Home', page: 'home' as const },
     { icon: Search, label: 'Search', page: 'search' as const },
-    { icon: Heart, label: 'Favorites', page: 'favorites' as const },
+    { icon: Globe, label: 'Bangla', page: 'bangla' as const },
     { icon: Bookmark, label: 'My List', page: 'watchlist' as const },
     { icon: User, label: 'Profile', page: isAuthenticated ? 'profile' as const : 'login' as const },
   ];

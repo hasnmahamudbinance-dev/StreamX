@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
 
 export async function GET() {
   try {
@@ -11,41 +10,13 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    // Fetch fresh user data from DB
-    const userId = (session.user as any).id;
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        language: true,
-        autoplay: true,
-        emailNotify: true,
-        emailVerified: true,
-        status: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ user: null });
-    }
-
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        image: user.avatar,
-        avatar: user.avatar,
-        language: user.language,
-        autoplay: user.autoplay,
-        emailNotify: user.emailNotify,
-        emailVerified: user.emailVerified,
-        status: user.status,
+        id: (session.user as any).id,
+        email: session.user.email,
+        name: session.user.name,
+        role: (session.user as any).role,
+        image: session.user.image,
       },
     });
   } catch (error) {

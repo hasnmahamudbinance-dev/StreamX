@@ -69,6 +69,28 @@ export interface TMDBSeason {
   air_date: string;
 }
 
+export interface TMDBEpisode {
+  id: number;
+  name: string;
+  overview: string;
+  episode_number: number;
+  season_number: number;
+  still_path: string | null;
+  air_date: string;
+  runtime: number;
+  vote_average: number;
+}
+
+export interface TMDBSeasonDetail {
+  id: number;
+  name: string;
+  season_number: number;
+  overview: string;
+  air_date: string;
+  poster_path: string | null;
+  episodes: TMDBEpisode[];
+}
+
 export interface TMDBGenre {
   id: number;
   name: string;
@@ -173,8 +195,6 @@ export interface UserSession {
   language?: string;
   autoplay?: boolean;
   emailNotify?: boolean;
-  emailVerified?: boolean;
-  status?: string;
 }
 
 export interface RatingData {
@@ -289,193 +309,99 @@ export interface EmailLogItem {
   createdAt: string;
 }
 
+export interface ContentReportItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  reason: string;
+  description: string | null;
+  status: string;
+  adminNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  user: { name: string; email: string };
+  reviewer?: { name: string } | null;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  userId: string;
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  user: { name: string; email: string };
+  messages: SupportMessageItem[];
+}
+
+export interface SupportMessageItem {
+  id: string;
+  userId: string;
+  message: string;
+  isAdmin: boolean;
+  createdAt: string;
+  user: { name: string; avatar: string | null };
+}
+
+export interface AuditLogItem {
+  id: string;
+  userId: string | null;
+  action: string;
+  details: string | null;
+  createdAt: string;
+  user?: { name: string; email: string } | null;
+}
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  version: string;
+  uptime: number;
+  checks: {
+    db: { status: string; responseTime: number; details?: string };
+    tmdb: { status: string; responseTime: number; details?: string };
+  };
+  system: {
+    memory: { heapUsed: number; heapTotal: number; rss: number };
+    nodeVersion: string;
+    environment: string;
+  };
+}
+
+export interface PlatformMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  recentSignups: number;
+  totalWatchlist: number;
+  totalRatings: number;
+  totalReviews: number;
+  totalViews: number;
+  averageRating: number;
+  topGenres: { genre: string; count: number }[];
+  storage: { totalStorage: number; videoStorage: number; imageStorage: number };
+  unresolvedErrors: number;
+}
+
 export type PageRoute = 
   | 'home' 
   | 'search' 
   | 'movie' 
   | 'tv' 
   | 'watchlist' 
-  | 'favorites'
   | 'history'
   | 'profile' 
   | 'login' 
   | 'register'
-  | 'verify-email'
-  | 'forgot-password'
-  | 'reset-password'
   | 'admin'
   | 'player'
-  | 'security'
-  | 'devices'
-  | 'profiles'
-  | 'pricing'
-  | 'billing'
-  | 'downloads'
-  | 'notifications';
-
-export interface FavoriteItem {
-  id: string;
-  userId: string;
-  contentId: string;
-  contentType: string;
-  createdAt: string;
-}
-
-export interface RecommendationSection {
-  title: string;
-  items: TMDBContent[];
-}
-
-export interface DeviceSession {
-  id: string;
-  userId: string;
-  token: string;
-  deviceName: string | null;
-  platform: string | null;
-  browser: string | null;
-  ipAddress: string | null;
-  lastActiveAt: string;
-  createdAt: string;
-}
-
-export interface UserProfile {
-  id: string;
-  userId: string;
-  profileName: string;
-  avatar: string | null;
-  isKids: boolean;
-  isDefault: boolean;
-  pin: string | null;
-  maxRating: string | null;
-  allowedGenres: string | null;
-  restrictedGenres: string | null;
-  searchRestricted: boolean;
-  playbackRestricted: boolean;
-  profileLocked: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  interval: string;
-  trialDays: number;
-  maxResolution: string;
-  maxDevices: number;
-  maxProfiles: number;
-  allowDownloads: boolean;
-  allowOffline: boolean;
-  features: string | null;
-  active: boolean;
-  order: number;
-}
-
-export interface UserSubscription {
-  id: string;
-  userId: string;
-  planId: string;
-  status: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  trialEnd: string | null;
-  cancelledAt: string | null;
-  cancelAtPeriodEnd: boolean;
-  plan: SubscriptionPlan;
-}
-
-export interface PaymentRecord {
-  id: string;
-  userId: string;
-  subscriptionId: string | null;
-  amount: number;
-  currency: string;
-  status: string;
-  provider: string;
-  description: string | null;
-  createdAt: string;
-}
-
-export interface DownloadItem {
-  id: string;
-  userId: string;
-  contentId: string;
-  contentType: string;
-  title: string;
-  posterPath: string | null;
-  seasonNumber: number | null;
-  episodeNumber: number | null;
-  quality: string;
-  fileSize: number;
-  status: string;
-  expiresAt: string | null;
-  createdAt: string;
-}
-
-export interface EmailCampaignItem {
-  id: string;
-  name: string;
-  subject: string;
-  type: string;
-  targetAudience: string;
-  status: string;
-  scheduledAt: string | null;
-  sentAt: string | null;
-  recipientCount: number;
-  openCount: number;
-  clickCount: number;
-  createdAt: string;
-}
-
-export interface CouponItem {
-  id: string;
-  code: string;
-  description: string | null;
-  discountType: string;
-  discountValue: number;
-  maxUses: number;
-  usedCount: number;
-  validFrom: string;
-  validUntil: string | null;
-  planId: string | null;
-  active: boolean;
-}
-
-export interface AnalyticsData {
-  dau: number;
-  mau: number;
-  totalUsers: number;
-  totalWatchTime: number;
-  avgCompletionRate: number;
-  retentionRate: number;
-  churnRate: number;
-  newUsersToday: number;
-  newUsersThisWeek: number;
-  newUsersThisMonth: number;
-  activeSubscriptions: number;
-  revenue: number;
-}
-
-export interface ContentAnalyticsData {
-  mostWatchedMovies: Array<{ id: string; title: string; views: number; watchTime: number }>;
-  mostWatchedTV: Array<{ id: string; title: string; views: number; watchTime: number }>;
-  topGenres: Array<{ genre: string; count: number }>;
-  searchTrends: Array<{ query: string; count: number }>;
-}
-
-export interface AudioTrackItem {
-  id: string;
-  contentId: string;
-  episodeId: string | null;
-  language: string;
-  label: string;
-  url: string | null;
-  isDefault: boolean;
-}
+  | 'support'
+  | 'privacy'
+  | 'bangla';
 
 export interface AppState {
   currentPage: PageRoute;
@@ -485,14 +411,109 @@ export interface AppState {
   isLoading: boolean;
   notifications: NotificationItem[];
   unreadCount: number;
-  activeProfile: UserProfile | null;
   
   navigate: (page: PageRoute, params?: Record<string, string>) => void;
   setUser: (user: UserSession | null) => void;
   setLoading: (loading: boolean) => void;
-  setActiveProfile: (profile: UserProfile | null) => void;
   setNotifications: (notifications: NotificationItem[]) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   logout: () => void;
+}
+
+// ─── AI Recommendation Types ──────────────────────────────────
+
+export interface RecommendationCategory {
+  id: string;
+  title: string;
+  items: TMDBContent[];
+}
+
+export interface SearchSuggestion {
+  text: string;
+  type: 'history' | 'trending' | 'popular';
+}
+
+export interface TrendingSearchItem {
+  query: string;
+  count: number;
+}
+
+export interface SearchHistoryItem {
+  id: string;
+  query: string;
+  type: string;
+  results: number;
+  createdAt: string;
+}
+
+// ─── Enhanced Analytics Types ─────────────────────────────────
+
+export interface EnhancedAnalytics {
+  dau: number;
+  wau: number;
+  mau: number;
+  retentionRate: number;
+  newUsersToday: number;
+  newUsersThisWeek: number;
+  newUsersThisMonth: number;
+  topWatchedContent: Array<{
+    contentId: string;
+    contentType: string;
+    title: string;
+    viewCount: number;
+    avgCompletion: number;
+  }>;
+  topGenres: Array<{ genre: string; count: number }>;
+  averageCompletionRate: number;
+  totalPlayEvents: number;
+  totalCompleteEvents: number;
+  averageWatchDuration: number;
+  peakHours: Array<{ hour: number; count: number }>;
+  topSearches: Array<{ query: string; count: number }>;
+  zeroResultSearches: Array<{ query: string; count: number }>;
+  searchToPlayRate: number;
+  deviceBreakdown: { desktop: number; mobile: number; tablet: number };
+  browserBreakdown: Array<{ browser: string; count: number }>;
+}
+
+// ─── Security Types ───────────────────────────────────────────
+
+export interface UserDeviceInfo {
+  id: string;
+  userId: string;
+  browser: string | null;
+  os: string | null;
+  device: string | null;
+  ipAddress: string | null;
+  lastActive: string;
+  createdAt: string;
+  user: { name: string; email: string };
+}
+
+export interface SecurityOverview {
+  activeDevices: number;
+  rateLimitViolations: number;
+  recentViolations: number;
+  topIps: Array<{ ipAddress: string; requests: number; blocked: number }>;
+  recentEvents: Array<{ type: string; description: string; timestamp: string }>;
+}
+
+// ─── TMDB Person Type ─────────────────────────────────────────
+
+export interface TMDBPerson {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department: string;
+  known_for: TMDBContent[];
+  popularity: number;
+  media_type: 'person';
+}
+
+export interface TMDBPersonSearchResult {
+  page: number;
+  results: TMDBPerson[];
+  total_pages: number;
+  total_results: number;
 }

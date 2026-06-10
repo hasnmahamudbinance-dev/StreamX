@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// GET: List playback progress for current user
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -11,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as Record<string, unknown>).id as string;
+    const userId = (session.user as any).id;
     const progress = await db.playbackProgress.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
@@ -24,7 +23,6 @@ export async function GET() {
   }
 }
 
-// POST: Create or update playback progress
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,18 +30,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as Record<string, unknown>).id as string;
+    const userId = (session.user as any).id;
     const body = await req.json();
-    const {
-      contentId,
-      contentType,
-      title,
-      posterPath,
-      seasonNumber,
-      episodeNumber,
-      position,
-      duration,
-    } = body;
+    const { contentId, contentType, title, posterPath, seasonNumber, episodeNumber, position, duration } = body;
 
     if (!contentId || !contentType || !title || position === undefined || duration === undefined) {
       return NextResponse.json(
@@ -74,148 +63,16 @@ export async function POST(req: NextRequest) {
         contentType,
         title,
         posterPath,
-        seasonNumber: seasonNumber || null,
-        episodeNumber: episodeNumber || null,
+        seasonNumber,
+        episodeNumber,
         position,
         duration,
       },
     });
-
-    // Auto-update WatchHistory when progress > 80% of duration
-    if (duration > 0 && position / duration > 0.8) {
-      try {
-        await db.watchHistory.upsert({
-          where: {
-            userId_contentId_contentType: {
-              userId,
-              contentId: String(contentId),
-              contentType,
-            },
-          },
-          update: {
-            title,
-            posterPath: posterPath || null,
-            progress: position,
-            duration,
-            watchedAt: new Date(),
-          },
-          create: {
-            userId,
-            contentId: String(contentId),
-            contentType,
-            title,
-            posterPath: posterPath || null,
-            progress: position,
-            duration,
-          },
-        });
-      } catch (historyError) {
-        console.error("Failed to auto-update watch history:", historyError);
-        // Don't fail the progress update if history update fails
-      }
-    }
 
     return NextResponse.json({ item: progress });
   } catch (error) {
     console.error("Progress POST error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-// PUT: Update playback progress (alias for POST with same behavior)
-export async function PUT(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as Record<string, unknown>).id as string;
-    const body = await req.json();
-    const {
-      contentId,
-      contentType,
-      title,
-      posterPath,
-      seasonNumber,
-      episodeNumber,
-      position,
-      duration,
-    } = body;
-
-    if (!contentId || !contentType || !title || position === undefined || duration === undefined) {
-      return NextResponse.json(
-        { error: "contentId, contentType, title, position, and duration are required" },
-        { status: 400 }
-      );
-    }
-
-    const progress = await db.playbackProgress.upsert({
-      where: {
-        userId_contentId_contentType_seasonNumber_episodeNumber: {
-          userId,
-          contentId: String(contentId),
-          contentType,
-          seasonNumber: seasonNumber || null,
-          episodeNumber: episodeNumber || null,
-        },
-      },
-      update: {
-        title,
-        posterPath,
-        position,
-        duration,
-      },
-      create: {
-        userId,
-        contentId: String(contentId),
-        contentType,
-        title,
-        posterPath,
-        seasonNumber: seasonNumber || null,
-        episodeNumber: episodeNumber || null,
-        position,
-        duration,
-      },
-    });
-
-    // Auto-update WatchHistory when progress > 80% of duration
-    if (duration > 0 && position / duration > 0.8) {
-      try {
-        await db.watchHistory.upsert({
-          where: {
-            userId_contentId_contentType: {
-              userId,
-              contentId: String(contentId),
-              contentType,
-            },
-          },
-          update: {
-            title,
-            posterPath: posterPath || null,
-            progress: position,
-            duration,
-            watchedAt: new Date(),
-          },
-          create: {
-            userId,
-            contentId: String(contentId),
-            contentType,
-            title,
-            posterPath: posterPath || null,
-            progress: position,
-            duration,
-          },
-        });
-      } catch (historyError) {
-        console.error("Failed to auto-update watch history:", historyError);
-        // Don't fail the progress update if history update fails
-      }
-    }
-
-    return NextResponse.json({ item: progress });
-  } catch (error) {
-    console.error("Progress PUT error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

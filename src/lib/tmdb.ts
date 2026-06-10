@@ -54,6 +54,10 @@ export async function getDetails(mediaType: string, id: string | number) {
   return tmdbFetch(`/${mediaType}/${id}`, { append_to_response: 'credits,videos,similar,recommendations' });
 }
 
+export async function getSeasonDetails(tvId: string | number, seasonNumber: number) {
+  return tmdbFetch(`/tv/${tvId}/season/${seasonNumber}`);
+}
+
 export async function searchContent(query: string, mediaType: string = 'multi', page: number = 1) {
   return tmdbFetch(`/search/${mediaType}`, { query, page: String(page) });
 }
@@ -64,6 +68,10 @@ export async function getGenres(mediaType: string = 'movie') {
 
 export async function discoverContent(mediaType: string, params: Record<string, string> = {}) {
   return tmdbFetch(`/discover/${mediaType}`, params);
+}
+
+export async function searchPeople(query: string, page: number = 1) {
+  return tmdbFetch('/search/person', { query, page: String(page) });
 }
 
 export function getContentTitle(item: any): string {

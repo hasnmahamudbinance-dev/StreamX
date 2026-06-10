@@ -1,215 +1,145 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as { role: string }).role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session?.user || (session.user as Record<string, unknown>).role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // User metrics
-    const [
-      totalUsers,
-      verifiedUsers,
-      unverifiedUsers,
-      usersWith2FA,
-      lockedAccounts,
-      activeSessions,
-    ] = await Promise.all([
-      db.user.count(),
-      db.user.count({ where: { emailVerified: true } }),
-      db.user.count({ where: { emailVerified: false } }),
-      db.user.count({ where: { twoFactorEnabled: true } }),
-      db.user.count({
-        where: {
-          lockedUntil: { not: null, gt: now },
+    // Active user devices (active in last 24h)
+    const activeDevices = await db.userDevice.findMany({
+      where: { lastActive: { gte: twentyFourHoursAgo } },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
         },
-      }),
-      db.userSession.count(),
-    ]);
+      },
+      orderBy: { lastActive: 'desc' },
+    });
 
-    // Login activity (last 24h)
-    const [recentLogins, failedLogins, newDeviceLogins] = await Promise.all([
-      db.activityLog.count({
-        where: {
-          action: "login",
-          createdAt: { gte: twentyFourHoursAgo },
-        },
-      }),
-      db.activityLog.count({
-        where: {
-          action: "login_failed",
-          createdAt: { gte: twentyFourHoursAgo },
-        },
-      }),
-      db.activityLog.count({
-        where: {
-          action: "new_device",
-          createdAt: { gte: twentyFourHoursAgo },
-        },
-      }),
-    ]);
+    // Rate limit violations (blocked requests)
+    const totalBlockedCount = await db.rateLimitLog.count({
+      where: { blocked: true },
+    });
 
-    // Password resets and email verification requests (last 24h)
-    const [passwordResets, emailVerificationRequests] = await Promise.all([
-      db.passwordResetCode.count({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
-      }),
-      db.emailVerificationCode.count({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
-      }),
-    ]);
+    // Recent blocked violations in last 24h
+    const recentViolations = await db.rateLimitLog.findMany({
+      where: {
+        blocked: true,
+        windowStart: { gte: twentyFourHoursAgo },
+      },
+      orderBy: { windowStart: 'desc' },
+      take: 50,
+    });
 
-    // Recent activity (last 20 entries)
-    const recentActivity = await db.activityLog.findMany({
+    // Top IP addresses by request count (from rate limit logs)
+    const topIpsRaw = await db.rateLimitLog.groupBy({
+      by: ['ipAddress'],
+      _sum: { requests: true },
+      _count: { ipAddress: true },
+      orderBy: { _sum: { requests: 'desc' } },
       take: 20,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        userId: true,
-        action: true,
-        deviceName: true,
-        platform: true,
-        browser: true,
-        ipAddress: true,
-        country: true,
-        details: true,
-        createdAt: true,
+    });
+
+    // Top IPs with blocked count
+    const topIpsWithBlocked = await Promise.all(
+      topIpsRaw.map(async (ip) => {
+        const blockedCount = await db.rateLimitLog.count({
+          where: {
+            ipAddress: ip.ipAddress,
+            blocked: true,
+          },
+        });
+        return {
+          ipAddress: ip.ipAddress,
+          totalRequests: ip._sum.requests || 0,
+          windowCount: ip._count.ipAddress,
+          blockedCount,
+        };
+      })
+    );
+
+    // Recent security events (combination of blocked rate limits and new devices)
+    const recentNewDevices = await db.userDevice.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      include: {
         user: {
           select: { id: true, name: true, email: true },
         },
       },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
     });
 
-    // Login activity over last 7 days (for chart)
-    const last7DaysLogins = await db.activityLog.groupBy({
-      by: ["action"],
-      where: {
-        action: { in: ["login", "login_failed", "new_device"] },
-        createdAt: { gte: sevenDaysAgo },
-      },
-      _count: { action: true },
-    });
-
-    // Build daily chart data for last 7 days
-    const loginChartData: { date: string; successful: number; failed: number; newDevice: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      const dateStr = dayStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-      const [dailySuccessful, dailyFailed, dailyNewDevice] = await Promise.all([
-        db.activityLog.count({
-          where: {
-            action: "login",
-            createdAt: { gte: dayStart, lt: dayEnd },
-          },
-        }),
-        db.activityLog.count({
-          where: {
-            action: "login_failed",
-            createdAt: { gte: dayStart, lt: dayEnd },
-          },
-        }),
-        db.activityLog.count({
-          where: {
-            action: "new_device",
-            createdAt: { gte: dayStart, lt: dayEnd },
-          },
-        }),
-      ]);
-
-      loginChartData.push({
-        date: dateStr,
-        successful: dailySuccessful,
-        failed: dailyFailed,
-        newDevice: dailyNewDevice,
-      });
-    }
-
-    // Recent failed logins (for alerts)
-    const recentFailedLogins = await db.activityLog.findMany({
-      where: {
-        action: "login_failed",
-        createdAt: { gte: twentyFourHoursAgo },
-      },
+    // Devices per user
+    const devicesPerUser = await db.userDevice.groupBy({
+      by: ['userId'],
+      _count: { userId: true },
+      orderBy: { _count: { userId: 'desc' } },
       take: 10,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        userId: true,
-        action: true,
-        ipAddress: true,
-        deviceName: true,
-        createdAt: true,
-        user: {
-          select: { id: true, name: true, email: true },
-        },
-      },
     });
 
-    // Locked accounts details
-    const lockedAccountsList = await db.user.findMany({
-      where: {
-        lockedUntil: { not: null, gt: now },
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        failedLoginAttempts: true,
-        lockedUntil: true,
-      },
-    });
-
-    // Password reset requests (last 24h, unused)
-    const recentPasswordResets = await db.passwordResetCode.findMany({
-      where: {
-        createdAt: { gte: twentyFourHoursAgo },
-        used: false,
-      },
-      take: 10,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        code: true,
-        used: true,
-        createdAt: true,
-        expiresAt: true,
-        user: {
+    // Enrich devices per user with user info
+    const devicesPerUserEnriched = await Promise.all(
+      devicesPerUser.map(async (d) => {
+        const user = await db.user.findUnique({
+          where: { id: d.userId },
           select: { id: true, name: true, email: true },
-        },
-      },
-    });
+        });
+        return {
+          user,
+          deviceCount: d._count.userId,
+        };
+      })
+    );
 
     return NextResponse.json({
-      totalUsers,
-      verifiedUsers,
-      unverifiedUsers,
-      usersWith2FA,
-      recentLogins,
-      failedLogins,
-      newDeviceLogins,
-      lockedAccounts,
-      activeSessions,
-      passwordResets,
-      emailVerificationRequests,
-      recentActivity,
-      loginChartData,
-      recentFailedLogins,
-      lockedAccountsList,
-      recentPasswordResets,
+      activeDevices: activeDevices.map((d) => ({
+        id: d.id,
+        userId: d.userId,
+        userName: d.user.name,
+        userEmail: d.user.email,
+        deviceFingerprint: d.deviceFingerprint,
+        browser: d.browser,
+        os: d.os,
+        device: d.device,
+        ipAddress: d.ipAddress,
+        lastActive: d.lastActive,
+        createdAt: d.createdAt,
+      })),
+      activeDeviceCount: activeDevices.length,
+      rateLimitViolations: {
+        total: totalBlockedCount,
+        last24h: recentViolations.length,
+        recent: recentViolations,
+      },
+      topIpAddresses: topIpsWithBlocked,
+      recentSecurityEvents: {
+        newDevices: recentNewDevices.map((d) => ({
+          id: d.id,
+          userId: d.userId,
+          userName: d.user.name,
+          deviceFingerprint: d.deviceFingerprint,
+          browser: d.browser,
+          os: d.os,
+          device: d.device,
+          ipAddress: d.ipAddress,
+          createdAt: d.createdAt,
+        })),
+        blockedRequests: recentViolations,
+      },
+      devicesPerUser: devicesPerUserEnriched,
     });
   } catch (error) {
-    console.error("Admin security error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Admin security dashboard error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

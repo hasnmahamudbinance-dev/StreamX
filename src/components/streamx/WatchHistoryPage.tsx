@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,11 +29,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { WatchHistoryItem } from '@/lib/types';
-
-interface GroupedHistory {
-  label: string;
-  items: WatchHistoryItem[];
-}
 
 export function WatchHistoryPage() {
   const { isAuthenticated, navigate } = useAppStore();
@@ -118,40 +113,6 @@ export function WatchHistoryPage() {
     }
   };
 
-  // Group items by date
-  const groupedHistory = useMemo((): GroupedHistory[] => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 86400000);
-    const thisWeekStart = new Date(today.getTime() - today.getDay() * 86400000);
-
-    const groups: { key: string; label: string; items: WatchHistoryItem[] }[] = [
-      { key: 'today', label: 'Today', items: [] },
-      { key: 'yesterday', label: 'Yesterday', items: [] },
-      { key: 'thisWeek', label: 'This Week', items: [] },
-      { key: 'earlier', label: 'Earlier', items: [] },
-    ];
-
-    const filteredItems = filter === 'all' ? items : items.filter(item => item.contentType === filter);
-
-    for (const item of filteredItems) {
-      const watchedDate = new Date(item.watchedAt);
-      const watchedDay = new Date(watchedDate.getFullYear(), watchedDate.getMonth(), watchedDate.getDate());
-
-      if (watchedDay.getTime() === today.getTime()) {
-        groups[0].items.push(item);
-      } else if (watchedDay.getTime() === yesterday.getTime()) {
-        groups[1].items.push(item);
-      } else if (watchedDay >= thisWeekStart) {
-        groups[2].items.push(item);
-      } else {
-        groups[3].items.push(item);
-      }
-    }
-
-    return groups.filter(g => g.items.length > 0);
-  }, [items, filter]);
-
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center">
@@ -166,6 +127,10 @@ export function WatchHistoryPage() {
 
   const isLoading = !loaded && isAuthenticated;
 
+  const filteredItems = filter === 'all'
+    ? items
+    : items.filter(item => item.contentType === filter);
+
   const movieCount = items.filter(i => i.contentType === 'movie').length;
   const tvCount = items.filter(i => i.contentType === 'tv').length;
 
@@ -176,10 +141,13 @@ export function WatchHistoryPage() {
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
 
       if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffMins < 60) return `Watched ${diffMins}m ago`;
+      if (diffHours < 24) return `Watched ${diffHours}h ago`;
+      if (diffDays === 1) return 'Watched yesterday';
+      if (diffDays < 7) return `Watched ${diffDays} days ago`;
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return dateStr;
@@ -245,7 +213,7 @@ export function WatchHistoryPage() {
                 </div>
               ))}
             </div>
-          ) : groupedHistory.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="text-center py-16">
               <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No watch history yet</h3>
@@ -257,98 +225,82 @@ export function WatchHistoryPage() {
               <Button onClick={() => navigate('home')}>Browse Content</Button>
             </div>
           ) : (
-            <div className="space-y-8">
-              {groupedHistory.map(group => (
-                <div key={group.label}>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    {group.label}
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {group.items.map(item => (
-                      <Card
-                        key={item.id}
-                        className="bg-card border-border cursor-pointer hover:border-primary/50 transition-colors group overflow-hidden p-0 relative"
-                        onClick={() => navigate(item.contentType === 'movie' ? 'movie' : 'tv', { id: item.contentId })}
-                      >
-                        {/* Remove button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveItem(item);
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {filteredItems.map(item => (
+                  <Card
+                    key={item.id}
+                    className="bg-card border-border cursor-pointer hover:border-primary/50 transition-colors group overflow-hidden p-0 relative"
+                    onClick={() => navigate(item.contentType === 'movie' ? 'movie' : 'tv', { id: item.contentId })}
+                  >
+                    {/* Remove button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveItem(item);
+                      }}
+                      className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                      disabled={removingId === item.id}
+                    >
+                      {removingId === item.id ? (
+                        <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3 text-white" />
+                      )}
+                    </button>
+                    <div className="relative aspect-video bg-muted">
+                      {item.posterPath ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w300${item.posterPath}`}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/placeholder-poster.svg';
                           }}
-                          className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
-                          disabled={removingId === item.id}
-                        >
-                          {removingId === item.id ? (
-                            <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {item.contentType === 'movie' ? (
+                            <Film className="h-8 w-8 text-muted-foreground" />
                           ) : (
-                            <X className="h-3 w-3 text-white" />
+                            <Tv className="h-8 w-8 text-muted-foreground" />
                           )}
-                        </button>
-                        <div className="relative aspect-video bg-muted">
-                          {item.posterPath ? (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w300${item.posterPath}`}
-                              alt={item.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/placeholder-poster.svg';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              {item.contentType === 'movie' ? (
-                                <Film className="h-8 w-8 text-muted-foreground" />
-                              ) : (
-                                <Tv className="h-8 w-8 text-muted-foreground" />
-                              )}
-                            </div>
-                          )}
-                          {/* Progress bar */}
-                          {item.duration > 0 && (
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
-                              <div
-                                className="h-full bg-primary transition-all duration-300"
-                                style={{ width: `${getProgressPercent(item)}%` }}
-                              />
-                            </div>
-                          )}
-                          {/* Play overlay */}
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Play className="h-8 w-8 text-white fill-white" />
-                          </div>
-                          {/* Type badge */}
-                          <Badge className="absolute top-2 left-2 text-[10px] h-5">
-                            {item.contentType === 'movie' ? (
-                              <><Film className="h-3 w-3 mr-0.5" /> Movie</>
-                            ) : (
-                              <><Tv className="h-3 w-3 mr-0.5" /> TV</>
-                            )}
-                          </Badge>
                         </div>
-                        <CardContent className="p-3">
-                          <h3 className="text-sm font-medium line-clamp-2">{item.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDate(item.watchedAt)}
-                            {getProgressPercent(item) > 0 && (
-                              <span className="ml-2">{getProgressPercent(item)}% watched</span>
-                            )}
-                          </p>
-                          {/* Progress bar below text for partially watched */}
-                          {getProgressPercent(item) > 0 && getProgressPercent(item) < 100 && (
-                            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary rounded-full transition-all duration-300"
-                                style={{ width: `${getProgressPercent(item)}%` }}
-                              />
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      )}
+                      {/* Progress bar */}
+                      {item.duration > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${getProgressPercent(item)}%` }}
+                          />
+                        </div>
+                      )}
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play className="h-8 w-8 text-white fill-white" />
+                      </div>
+                      {/* Type badge */}
+                      <Badge className="absolute top-2 left-2 text-[10px] h-5">
+                        {item.contentType === 'movie' ? (
+                          <><Film className="h-3 w-3 mr-0.5" /> Movie</>
+                        ) : (
+                          <><Tv className="h-3 w-3 mr-0.5" /> TV</>
+                        )}
+                      </Badge>
+                    </div>
+                    <CardContent className="p-3">
+                      <h3 className="text-sm font-medium line-clamp-2">{item.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDate(item.watchedAt)}
+                        {getProgressPercent(item) > 0 && (
+                          <span className="ml-2">{getProgressPercent(item)}% watched</span>
+                        )}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
               {/* Load More */}
               {hasMore && (
@@ -362,7 +314,7 @@ export function WatchHistoryPage() {
                   </Button>
                 </div>
               )}
-            </div>
+            </>
           )}
         </TabsContent>
       </Tabs>

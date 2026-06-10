@@ -8,43 +8,33 @@ datasource db {
 }
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  name                  String
-  password              String
-  role                  String    @default("user")
-  avatar                String?
-  language              String    @default("en")
-  autoplay              Boolean   @default(true)
-  emailNotify           Boolean   @default(true)
-  emailVerified         Boolean   @default(false)
-  emailVerifiedAt       DateTime?
-  status                String    @default("active") // "pending_verification", "active", "suspended", "deleted"
-  twoFactorEnabled      Boolean   @default(false)
-  twoFactorMethod       String?   // "email", "app"
-  twoFactorSecret       String?   // TOTP secret for authenticator apps
-  failedLoginAttempts   Int       @default(0)
-  lockedUntil           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  password     String
+  role         String   @default("user")
+  avatar       String?
+  language     String   @default("en")
+  autoplay     Boolean  @default(true)
+  emailNotify   Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  watchlistItems        WatchlistItem[]
-  progressItems         PlaybackProgress[]
-  watchHistory          WatchHistory[]
-  notifications         Notification[]
-  auditLogs             AuditLog[]
-  ratings               Rating[]
-  reviews               Review[]
-  verificationCodes     EmailVerificationCode[]
-  passwordResetCodes    PasswordResetCode[]
-  sessions              UserSession[]
-  profiles              Profile[]
-  favoriteItems         Favorite[]
-  activityLog           ActivityLog[]
-  emailChangeCodes      EmailChangeCode[]
-  subscription          Subscription?
-  downloads             Download[]
-  pushTokens            PushToken[]
+  watchlistItems    WatchlistItem[]
+  progressItems     PlaybackProgress[]
+  watchHistory      WatchHistory[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  ratings           Rating[]
+  reviews           Review[]
+  reports           ContentReport[]  @relation("ReportSubmitter")
+  reviewedReports   ContentReport[]  @relation("ReportReviewer")
+  tickets           SupportTicket[]
+  messages          SupportMessage[]
+  behaviors         UserBehavior[]
+  searchHistory     SearchHistory[]
+  devices           UserDevice[]
 }
 
 model WatchlistItem {
@@ -110,8 +100,7 @@ model Rating {
   userId      String
   contentId   String
   contentType String
-  score       Int      // 1-10 scale
-  review      String?  // optional text review
+  score       Int      // 1-5 stars
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -232,7 +221,6 @@ model UploadedContent {
   analytics      ContentAnalytics[]
   schedules      ContentSchedule[]
   homepageItems  HomepageSectionItem[]
-  audioTracks    AudioTrack[]
 
   @@index([status])
   @@index([type])
@@ -379,321 +367,136 @@ model EmailLog {
   @@index([createdAt])
 }
 
-model Favorite {
+model ContentReport {
   id          String   @id @default(cuid())
   userId      String
   contentId   String
-  contentType String   // "movie", "tv"
+  contentType String   // movie or tv
+  reason      String   // copyright, inappropriate, broken, other
+  description String?
+  status      String   @default("pending") // pending, reviewed, resolved, dismissed
+  adminNote   String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User  @relation("ReportSubmitter", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("ReportReviewer", fields: [reviewedBy], references: [id])
 
-  @@unique([userId, contentId, contentType])
+  @@index([status])
   @@index([userId])
 }
 
-model TwoFactorCode {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String   // 6-digit code
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([code])
-  @@index([expiresAt])
-}
-
-model RecoveryCode {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String   // 8-character alphanumeric code
-  used      Boolean  @default(false)
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([code])
-}
-
-model ActivityLog {
+model SupportTicket {
   id          String   @id @default(cuid())
   userId      String
-  action      String   // "login", "login_failed", "new_device", "password_change", "email_change", "2fa_enabled", "2fa_disabled", "session_removed", "profile_created", "profile_deleted", "pin_set", "pin_changed", "pin_removed"
-  deviceName  String?
-  platform    String?
-  browser     String?
-  ipAddress   String?
-  country     String?
-  details     String?  // JSON string with additional context
+  subject     String
+  description String
+  category    String   @default("other") // technical, billing, content, account, other
+  priority    String   @default("medium") // low, medium, high
+  status      String   @default("open") // open, in_progress, resolved, closed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model SupportMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  message   String
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+// ─── AI Recommendation Engine Models ──────────────────────────
+
+model UserBehavior {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String   // "movie" or "tv"
+  action      String   // "view", "play", "complete", "rate", "search", "watchlist_add"
+  genres      String?  // comma-separated genre IDs
+  title       String?
+  duration    Int      @default(0)  // watch duration in seconds
+  completion  Float    @default(0)  // 0.0 to 1.0
+  device      String?  // "desktop", "mobile", "tablet"
+  metadata    String?  // JSON string for additional context
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([contentId])
   @@index([action])
   @@index([createdAt])
 }
 
-model EmailChangeCode {
-  id          String   @id @default(cuid())
-  userId      String
-  newEmail    String
-  code        String   // 6-digit code
-  type        String   // "old_email", "new_email"
-  expiresAt   DateTime
-  used        Boolean  @default(false)
-  createdAt   DateTime @default(now())
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  query     String
+  type      String   @default("multi")  // "multi", "movie", "tv", "person"
+  results   Int      @default(0)  // number of results found
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([code])
-  @@index([expiresAt])
-}
-
-model EmailVerificationCode {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String   // 6-digit code
-  expiresAt DateTime
-  attempts  Int      @default(0)
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([code])
-  @@index([expiresAt])
-}
-
-model PasswordResetCode {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String   // 6-digit code
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([code])
-  @@index([expiresAt])
-}
-
-model UserSession {
-  id              String   @id @default(cuid())
-  userId          String
-  token           String   @unique // session token / refresh token hash
-  deviceName      String?
-  platform        String?  // "web", "android", "ios"
-  browser         String?
-  ipAddress       String?
-  lastActiveAt    DateTime @default(now())
-  createdAt       DateTime @default(now())
-
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([token])
-  @@index([lastActiveAt])
-}
-
-model Profile {
-  id                 String   @id @default(cuid())
-  userId             String
-  profileName        String
-  avatar             String?
-  isKids             Boolean  @default(false)
-  isDefault          Boolean  @default(false)
-  pin                String?  // hashed 4-digit PIN
-  maxRating          String?  // "G", "PG", "PG-13", "TV-Y", "TV-PG", etc.
-  allowedGenres      String?  // comma-separated genre IDs
-  restrictedGenres   String?  // comma-separated genre IDs
-  searchRestricted   Boolean  @default(false)
-  playbackRestricted Boolean  @default(false)
-  profileLocked      Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-// ============ Subscription & Monetization ============
-
-model SubscriptionPlan {
-  id                String   @id @default(cuid())
-  name              String   @unique // "Free", "Premium", "Family"
-  displayName       String
-  description       String?
-  price             Float    @default(0)
-  currency          String   @default("USD")
-  interval          String   @default("month") // "month", "year"
-  trialDays         Int      @default(0)
-  maxResolution     String   @default("720p") // "480p", "720p", "1080p", "4k"
-  maxDevices        Int      @default(1)
-  maxProfiles       Int      @default(1)
-  allowDownloads    Boolean  @default(false)
-  allowOffline      Boolean  @default(false)
-  features          String?  // JSON string of feature list
-  stripePriceId     String?  // Stripe price ID
-  active            Boolean  @default(true)
-  order             Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  subscriptions     Subscription[]
-
-  @@index([active])
-  @@index([order])
-}
-
-model Subscription {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  planId            String
-  status            String   @default("active") // "trial", "active", "past_due", "cancelled", "expired"
-  currentPeriodStart DateTime @default(now())
-  currentPeriodEnd  DateTime
-  trialEnd          DateTime?
-  cancelledAt       DateTime?
-  cancelAtPeriodEnd Boolean  @default(false)
-  stripeSubscriptionId String?
-  stripeCustomerId  String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan              SubscriptionPlan  @relation(fields: [planId], references: [id])
-  payments          Payment[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([currentPeriodEnd])
-}
-
-model Payment {
-  id                String   @id @default(cuid())
-  userId            String
-  subscriptionId    String?
-  amount            Float
-  currency          String   @default("USD")
-  status            String   @default("pending") // "pending", "completed", "failed", "refunded"
-  provider          String   @default("stripe") // "stripe", "google_play"
-  providerPaymentId String?  // Stripe payment intent ID etc
-  description       String?
-  invoiceUrl        String?
-  createdAt         DateTime @default(now())
-
-  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([status])
   @@index([createdAt])
+  @@index([query])
 }
 
-model Coupon {
-  id                String   @id @default(cuid())
-  code              String   @unique
-  description       String?
-  discountType      String   // "percentage", "fixed"
-  discountValue     Float
-  maxUses           Int      @default(-1) // -1 = unlimited
-  usedCount         Int      @default(0)
-  validFrom         DateTime @default(now())
-  validUntil        DateTime?
-  planId            String?  // null = applies to all plans
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
+model TrendingSearch {
+  id        String   @id @default(cuid())
+  query     String
+  count     Int      @default(1)
+  updatedAt DateTime @updatedAt
 
-  @@index([code])
-  @@index([active])
+  @@unique([query])
 }
 
-// ============ Downloads & Offline ============
+// ─── Enterprise Security Models ───────────────────────────────
 
-model Download {
-  id                String   @id @default(cuid())
-  userId            String
-  contentId         String
-  contentType       String   // "movie", "tv"
-  title             String
-  posterPath        String?
-  seasonNumber      Int?
-  episodeNumber     Int?
-  quality           String   @default("high") // "low", "medium", "high"
-  fileSize          Int      @default(0) // bytes
-  status            String   @default("pending") // "pending", "downloading", "completed", "failed", "expired"
-  downloadPath      String?
-  expiresAt         DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model UserDevice {
+  id           String   @id @default(cuid())
+  userId       String
+  deviceFingerprint String?
+  userAgent    String?
+  browser      String?
+  os           String?
+  device       String?  // "desktop", "mobile", "tablet"
+  ipAddress    String?
+  lastActive   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, contentId, contentType, seasonNumber, episodeNumber])
-  @@index([userId])
-  @@index([status])
-}
-
-// ============ Push Notifications ============
-
-model PushToken {
-  id                String   @id @default(cuid())
-  userId            String
-  token             String   @unique
-  platform          String?  // "web", "android", "ios"
-  deviceId          String?
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([token])
+  @@index([deviceFingerprint])
 }
 
-// ============ Email Campaigns ============
+model RateLimitLog {
+  id         String   @id @default(cuid())
+  ipAddress  String
+  endpoint   String
+  requests   Int      @default(1)
+  windowStart DateTime @default(now())
+  blocked    Boolean  @default(false)
 
-model EmailCampaign {
-  id                String   @id @default(cuid())
-  name              String
-  subject           String
-  body              String   // HTML body
-  type              String   @default("custom") // "weekly_recommendations", "watchlist_reminder", "new_releases", "continue_watching", "custom"
-  targetAudience    String   @default("all") // "all", "free", "premium", "inactive"
-  status            String   @default("draft") // "draft", "scheduled", "sending", "sent", "failed"
-  scheduledAt       DateTime?
-  sentAt            DateTime?
-  recipientCount    Int      @default(0)
-  openCount         Int      @default(0)
-  clickCount        Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([type])
-}
-
-// ============ Audio Tracks ============
-
-model AudioTrack {
-  id                String   @id @default(cuid())
-  contentId         String
-  episodeId         String?
-  language          String   // "en", "bn", "hi", "ar", etc.
-  label             String   // "English", "Bangla", "Hindi"
-  url               String?  // URL to audio track / HLS with this audio
-  isDefault         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-
-  content           UploadedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
-
-  @@index([contentId])
+  @@unique([ipAddress, endpoint, windowStart])
+  @@index([ipAddress])
+  @@index([windowStart])
 }

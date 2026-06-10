@@ -15,51 +15,30 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { role, status, failedLoginAttempts, lockedUntil } = body;
+    const { role } = body;
 
     if (role && !["user", "admin"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    if (status && !["active", "suspended", "pending_verification", "deleted"].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-    }
-
-    // Build update data dynamically
-    const updateData: Record<string, unknown> = {};
-    if (role) updateData.role = role;
-    if (status) updateData.status = status;
-    if (failedLoginAttempts !== undefined) updateData.failedLoginAttempts = failedLoginAttempts;
-    if (lockedUntil !== undefined) updateData.lockedUntil = lockedUntil;
-
     const user = await db.user.update({
       where: { id },
-      data: updateData,
+      data: { role },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
-        status: true,
-        failedLoginAttempts: true,
-        lockedUntil: true,
         createdAt: true,
       },
     });
 
     // Create audit log
-    const auditAction = status === "active" && failedLoginAttempts === 0 && lockedUntil === null
-      ? "UNLOCK_USER_ACCOUNT"
-      : "UPDATE_USER_ROLE";
-    const auditDetails = status === "active" && failedLoginAttempts === 0 && lockedUntil === null
-      ? `Unlocked user account ${user.email}`
-      : `Changed user ${user.email} role to ${role || user.role}`;
-
     await db.auditLog.create({
       data: {
         userId: (session.user as any).id,
-        action: auditAction,
-        details: auditDetails,
+        action: "UPDATE_USER_ROLE",
+        details: `Changed user ${user.email} role to ${role}`,
       },
     });
 

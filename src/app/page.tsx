@@ -14,14 +14,9 @@ import { ProfileSettings } from '@/components/streamx/ProfileSettings';
 import { AdminDashboard } from '@/components/streamx/AdminDashboard';
 import { PlayerPage } from '@/components/streamx/PlayerPage';
 import { WatchHistoryPage } from '@/components/streamx/WatchHistoryPage';
-import { FavoritesPage } from '@/components/streamx/FavoritesPage';
-import { DeviceManagement } from '@/components/streamx/DeviceManagement';
-import { SecuritySettings } from '@/components/streamx/SecuritySettings';
-import { ProfileSelectPage } from '@/components/streamx/ProfileSelectPage';
-import { PricingPage } from '@/components/streamx/PricingPage';
-import { BillingPage } from '@/components/streamx/BillingPage';
-import { DownloadsPage } from '@/components/streamx/DownloadsPage';
-import { NotificationCenterPage } from '@/components/streamx/NotificationCenterPage';
+import { SupportPage } from '@/components/streamx/SupportPage';
+import { PrivacyPage } from '@/components/streamx/PrivacyPage';
+import { BanglaHub } from '@/components/streamx/BanglaHub';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -65,15 +60,9 @@ export default function StreamXApp() {
       case 'watchlist':
         return <WatchlistPage />;
       case 'login':
-        return <AuthPage mode="login" initialEmail={currentParams.email} />;
+        return <AuthPage mode="login" />;
       case 'register':
-        return <AuthPage mode="register" initialEmail={currentParams.email} />;
-      case 'verify-email':
-        return <AuthPage mode="verify-email" initialEmail={currentParams.email} />;
-      case 'forgot-password':
-        return <AuthPage mode="forgot-password" initialEmail={currentParams.email} />;
-      case 'reset-password':
-        return <AuthPage mode="reset-password" initialEmail={currentParams.email} />;
+        return <AuthPage mode="register" />;
       case 'profile':
         return <ProfileSettings />;
       case 'admin':
@@ -82,40 +71,29 @@ export default function StreamXApp() {
         return currentParams.id ? <PlayerPage /> : <HomePage />;
       case 'history':
         return <WatchHistoryPage />;
-      case 'favorites':
-        return <FavoritesPage />;
-      case 'devices':
-        return <DeviceManagement />;
-      case 'security':
-        return <SecuritySettings />;
-      case 'profiles':
-        return <ProfileSelectPage />;
-      case 'pricing':
-        return <PricingPage />;
-      case 'billing':
-        return <BillingPage />;
-      case 'downloads':
-        return <DownloadsPage />;
-      case 'notifications':
-        return <NotificationCenterPage />;
+      case 'support':
+        return <SupportPage />;
+      case 'privacy':
+        return <PrivacyPage />;
+      case 'bangla':
+        return <BanglaHub />;
       default:
         return <HomePage />;
     }
   };
 
-  const isAuthPage = currentPage === 'login' || currentPage === 'register' || currentPage === 'verify-email' || currentPage === 'forgot-password' || currentPage === 'reset-password';
-  const isProfileSelect = currentPage === 'profiles';
+  const isAuthPage = currentPage === 'login' || currentPage === 'register';
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {!isAuthPage && !isProfileSelect && <Navbar />}
+      {!isAuthPage && <Navbar />}
       <main className="flex-1">
         {renderPage()}
       </main>
-      {!isAuthPage && !isProfileSelect && <Footer />}
-      {!isAuthPage && !isProfileSelect && <MobileNav />}
+      {!isAuthPage && <Footer />}
+      {!isAuthPage && <MobileNav />}
       {/* Bottom padding for mobile nav */}
-      {!isAuthPage && !isProfileSelect && <div className="h-16 md:hidden" />}
+      {!isAuthPage && <div className="h-16 md:hidden" />}
     </div>
   );
 }

@@ -113,7 +113,7 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
         body: JSON.stringify({ contentId, contentType, score }),
       });
       if (res.ok) {
-        toast.success(`You rated ${score}/10`);
+        toast.success(`You rated ${score} star${score > 1 ? 's' : ''}`);
         fetchRatings();
       } else {
         const data = await res.json();
@@ -249,7 +249,7 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
     }
   };
 
-  const distribution = ratingData?.distribution || Array(10).fill(0);
+  const distribution = ratingData?.distribution || [0, 0, 0, 0, 0];
   const maxDistribution = Math.max(...distribution, 1);
 
   return (
@@ -269,10 +269,10 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
                 {ratingData ? ratingData.average.toFixed(1) : '—'}
               </div>
               <div className="flex items-center gap-0.5 mt-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                {[1, 2, 3, 4, 5].map(star => (
                   <Star
                     key={star}
-                    className={`h-4 w-4 ${
+                    className={`h-5 w-5 ${
                       ratingData && star <= Math.round(ratingData.average)
                         ? 'text-yellow-400 fill-yellow-400'
                         : 'text-muted-foreground/30'
@@ -281,25 +281,26 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
                 ))}
               </div>
               <div className="text-sm text-muted-foreground mt-1">
-                {ratingData?.count || 0} rating{ratingData?.count !== 1 ? 's' : ''} · out of 10
+                {ratingData?.count || 0} rating{ratingData?.count !== 1 ? 's' : ''}
               </div>
             </div>
 
             {/* Distribution */}
-            <div className="flex-1 space-y-1">
-              {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(starLevel => {
+            <div className="flex-1 space-y-1.5">
+              {[5, 4, 3, 2, 1].map(starLevel => {
                 const count = distribution[starLevel - 1] || 0;
                 const pct = ratingData?.count ? (count / ratingData.count) * 100 : 0;
                 return (
-                  <div key={starLevel} className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground w-4 text-right">{starLevel}</span>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  <div key={starLevel} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-3 text-right">{starLevel}</span>
+                    <Star className="h-3 w-3 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+                    <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-yellow-400 rounded-full transition-all duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground w-6 text-right">{count}</span>
+                    <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
                   </div>
                 );
               })}
@@ -311,7 +312,7 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <span className="text-sm text-muted-foreground">Rate this {contentType === 'movie' ? 'movie' : 'show'}:</span>
             <div className="flex items-center gap-0.5">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+              {[1, 2, 3, 4, 5].map(star => (
                 <button
                   key={star}
                   type="button"
@@ -319,10 +320,10 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
                   className="p-0.5 transition-transform hover:scale-110 focus:outline-none"
-                  aria-label={`Rate ${star} out of 10`}
+                  aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                 >
                   <Star
-                    className={`h-5 w-5 transition-colors ${
+                    className={`h-6 w-6 transition-colors ${
                       star <= (hoverRating || ratingData?.userRating || 0)
                         ? 'text-yellow-400 fill-yellow-400'
                         : 'text-muted-foreground/30'
@@ -334,7 +335,7 @@ export function RatingsReviews({ contentId, contentType }: RatingsReviewsProps) 
             {ratingData?.userRating && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-yellow-400 font-medium">
-                  Your Rating: {ratingData.userRating}/10
+                  Your Rating: {ratingData.userRating} star{ratingData.userRating > 1 ? 's' : ''}
                 </span>
                 <Button
                   variant="ghost"
