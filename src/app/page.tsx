@@ -18,6 +18,9 @@ import { SupportPage } from '@/components/streamx/SupportPage';
 import { PrivacyPage } from '@/components/streamx/PrivacyPage';
 import { BanglaHub } from '@/components/streamx/BanglaHub';
 import { ProfileSelectPage } from '@/components/streamx/ProfileSelectPage';
+import { BillingPage } from '@/components/streamx/BillingPage';
+import { PricingPage } from '@/components/streamx/PricingPage';
+import { FavoritesPage } from '@/components/streamx/FavoritesPage';
 
 export default function StreamXApp() {
   const { currentPage, currentParams, setUser, setNotifications, isAuthenticated } = useAppStore();
@@ -86,6 +89,12 @@ export default function StreamXApp() {
         return <PrivacyPage />;
       case 'bangla':
         return <BanglaHub />;
+      case 'billing':
+        return <BillingPage />;
+      case 'pricing':
+        return <PricingPage />;
+      case 'favorites':
+        return <FavoritesPage />;
       default:
         return <HomePage />;
     }

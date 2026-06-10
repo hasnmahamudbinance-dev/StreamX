@@ -47,6 +47,8 @@ model User {
   passwordResetCodes    PasswordResetCode[]
   sessions              UserSession[]
   profiles              Profile[]
+  subscriptions         Subscription[]
+  favorites             Favorite[]
 }
 
 model WatchlistItem {
@@ -579,4 +581,108 @@ model Profile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Subscription & Billing Models ─────────────────────────────
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  name            String   @unique  // "free", "premium", "family"
+  displayName     String   // "Free", "Premium", "Family"
+  description     String?
+  price           Float    @default(0)
+  currency        String   @default("USD")
+  interval        String   @default("month")  // "month" or "year"
+  maxResolution   String   @default("720p")
+  maxDevices      Int      @default(1)
+  maxProfiles     Int      @default(1)
+  allowDownloads  Boolean  @default(false)
+  allowOffline    Boolean  @default(false)
+  trialDays       Int      @default(0)
+  features        String?  // JSON array of feature strings
+  active          Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions   Subscription[]
+
+  @@index([active])
+  @@index([order])
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String
+  planId             String
+  status             String   @default("active")  // "active", "trial", "past_due", "cancelled", "expired"
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime @default(now())
+  cancelAtPeriodEnd  Boolean  @default(false)
+  cancelledAt        DateTime?
+  trialStart         DateTime?
+  trialEnd           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@unique([userId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  subscriptionId String
+  amount      Float
+  currency    String   @default("USD")
+  status      String   @default("completed")  // "completed", "pending", "failed", "refunded"
+  description String?
+  invoiceUrl  String?
+  provider    String?  // "stripe", "paypal", etc.
+  createdAt   DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([createdAt])
+}
+
+model Coupon {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  discountType String   // "percentage" or "fixed"
+  discountValue Float   // percentage (e.g., 20) or fixed amount (e.g., 5.00)
+  maxUses      Int      @default(-1)  // -1 = unlimited
+  usedCount    Int      @default(0)
+  expiresAt    DateTime?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([code])
+  @@index([active])
+}
+
+// ─── Favorites Model ────────────────────────────────────────────
+
+model Favorite {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String   // "movie" or "tv"
+  title       String?
+  posterPath  String?
+  addedAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@index([userId])
+  @@index([contentId])
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings } from 'lucide-react';
+import { Search, Bell, User, X, LogOut, Bookmark, Shield, Settings, Heart, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +75,7 @@ export function Navbar() {
     { label: 'TV Shows', page: 'search' as const, params: { type: 'tv' } },
     { label: '🇧🇩 Bangla', page: 'bangla' as const },
     { label: 'My List', page: 'watchlist' as const },
+    { label: 'Favorites', page: 'favorites' as const },
   ];
 
   return (
@@ -217,6 +218,12 @@ export function Navbar() {
                           </button>
                           <button onClick={() => { navigate('watchlist'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
                             <Bookmark className="h-4 w-4" /> My List
+                          </button>
+                          <button onClick={() => { navigate('favorites'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
+                            <Heart className="h-4 w-4" /> Favorites
+                          </button>
+                          <button onClick={() => { navigate('billing'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">
+                            <CreditCard className="h-4 w-4" /> Billing
                           </button>
                           {user?.role === 'admin' && (
                             <button onClick={() => { navigate('admin'); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors">

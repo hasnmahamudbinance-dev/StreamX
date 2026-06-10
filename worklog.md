@@ -1,34 +1,29 @@
 ---
 Task ID: 1
-Agent: Main
-Task: StreamX Authentication & Account System Implementation
+Agent: main
+Task: Fix Pricing, Billing, and Favorites pages based on screenshot analysis
 
 Work Log:
-- Examined current project state: schema, existing auth, components
-- Found Prisma schema was missing EmailVerificationCode, PasswordResetCode, UserSession, Profile models
-- Found User model was missing status, emailVerifiedAt, failedLoginAttempts, lockedUntil, 2FA fields
-- Found AuthPage was basic (no email verification flow, no forgot password, no password strength)
-- Updated Prisma schema with 4 new models and 8 new User fields
-- Ran db:push and prisma generate successfully
-- Updated register API to create users with pending_verification status, send verification email, and create default profile
-- Updated auth.ts with account lock checking (5 attempts → 15 min lock), failed login attempt tracking, email verification status
-- Updated session API to include emailVerified and status fields
-- Built comprehensive Netflix-style AuthPage with 5 modes: login, register, verify-email, forgot-password, reset-password
-- Added OTP input component with 6-digit code entry, paste support, auto-focus
-- Added password strength indicator with visual progress bar and requirements badges
-- Added cooldown timer for resend verification code (60 seconds)
-- Updated types.ts with new PageRoute values (verify-email, forgot-password, reset-password, profiles)
-- Updated page.tsx with new auth page routing and profile select page
-- Updated AppState interface with activeProfile and setActiveProfile
-- Updated profiles API to auto-create default profile for existing users
-- Migrated existing users (admin, user, usr) with active status, emailVerified=true, and default profiles
-- Lint check passed with no errors
-- Server compiles and renders correctly
+- Analyzed 5 screenshots using VLM (Vision Language Model) to identify issues
+- screenshot-pricing.png, screenshot-pricing2.png, screenshot-pricing-auth.png: All showed "No plans available at this time" on the pricing page
+- screenshot-billing.png: Showed "No Active Subscription" empty state on billing page
+- streamx-favorites.png: Showed working favorites page with 1 item (Obsession)
+- Identified root causes: Missing Prisma models, missing TypeScript types, missing page routes, no seeded plans
+- Added 5 new Prisma models: SubscriptionPlan, Subscription, Payment, Coupon, Favorite
+- Added relation fields to User model (subscriptions, favorites)
+- Added TypeScript types: SubscriptionPlan, UserSubscription, PaymentRecord, FavoriteItem
+- Added 'billing', 'pricing', 'favorites' to PageRoute union type
+- Added route cases in page.tsx renderPage() for all 3 new pages
+- Added navigation links: Favorites in top nav, Favorites and Billing in user menu dropdown
+- Fixed Favorite API orderBy field (createdAt → addedAt)
+- Added provider field to Payment model for compatibility with subscribe API
+- Seeded 3 subscription plans: Free ($0), Premium ($9.99/mo), Family ($14.99/mo)
+- Pushed Prisma schema to DB and regenerated client
+- Verified all pages render correctly via Agent Browser testing
 
 Stage Summary:
-- Prisma schema: 4 new models (EmailVerificationCode, PasswordResetCode, UserSession, Profile), 8 new User fields
-- Register API: Creates user with pending_verification, sends 6-digit verification code, creates default profile
-- Auth.ts: Account lock after 5 failed attempts (15 min), email/status checks, failed attempt tracking
-- AuthPage: Netflix-style with 5 modes, OTP input, password strength, cooldown timer, forgot password flow
-- Routes: Added verify-email, forgot-password, reset-password, profiles to PageRoute and page.tsx
-- All existing users migrated with proper status and default profiles
+- Pricing page now shows 3 plan cards (Free, Premium, Family) with Monthly/Annual toggle
+- Billing page shows proper empty state with "View Plans" button when no subscription
+- Favorites page shows filter tabs (All/Movies/TV Shows) and proper empty state
+- All API routes (/api/subscriptions/plans, /api/subscriptions/current, /api/favorites) working
+- Navigation works: top nav Favorites link, user menu Billing/Favorites links

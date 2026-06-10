@@ -407,7 +407,10 @@ export type PageRoute =
   | 'player'
   | 'support'
   | 'privacy'
-  | 'bangla';
+  | 'bangla'
+  | 'billing'
+  | 'pricing'
+  | 'favorites';
 
 export interface AppState {
   currentPage: PageRoute;
@@ -505,6 +508,67 @@ export interface SecurityOverview {
   recentViolations: number;
   topIps: Array<{ ipAddress: string; requests: number; blocked: number }>;
   recentEvents: Array<{ type: string; description: string; timestamp: string }>;
+}
+
+// ─── Subscription & Billing Types ──────────────────────────────
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  interval: string;
+  maxResolution: string;
+  maxDevices: number;
+  maxProfiles: number;
+  allowDownloads: boolean;
+  allowOffline: boolean;
+  trialDays: number;
+  features: string | null;
+  active: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  cancelledAt: string | null;
+  trialStart: string | null;
+  trialEnd: string | null;
+  createdAt: string;
+  updatedAt: string;
+  plan?: SubscriptionPlan;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  subscriptionId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description: string | null;
+  invoiceUrl: string | null;
+  createdAt: string;
+}
+
+export interface FavoriteItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  title: string | null;
+  posterPath: string | null;
+  addedAt: string;
 }
 
 // ─── TMDB Person Type ─────────────────────────────────────────

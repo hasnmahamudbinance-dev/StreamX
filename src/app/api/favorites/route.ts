@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const [items, total] = await Promise.all([
       db.favorite.findMany({
         where: { userId },
-        orderBy: { createdAt: "desc" },
+        orderBy: { addedAt: "desc" },
         skip,
         take: limit,
       }),
