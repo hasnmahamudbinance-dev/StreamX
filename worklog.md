@@ -97,3 +97,26 @@ Stage Summary:
 - All email pipeline steps now have detailed [email] and [register] prefixed logs
 - EmailSent status included in register API response
 - TO ACTUALLY FIX EMAIL DELIVERY: Verify a custom domain in Resend dashboard → update EMAIL_FROM to use that domain
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix blank preview panel issue
+
+Work Log:
+- Investigated why the platform's preview panel showed a blank/white screen
+- Root cause #1: The dev script used `2>&1 | tee dev.log` which creates a pipe that causes SIGPIPE kills when the tee process or terminal disconnects
+- Root cause #2: The dev server wasn't binding to 0.0.0.0, making it inaccessible from the Caddy gateway
+- Root cause #3: The server would crash intermittently under load (multiple concurrent requests from browser)
+- Fixed package.json dev script: changed from `next dev -p 3000 2>&1 | tee dev.log` to `next dev -p 3000 -H 0.0.0.0 > dev.log 2>&1`
+- Added `-H 0.0.0.0` flag to bind to all network interfaces (required for Caddy reverse proxy)
+- Removed `| tee` pipe that caused server crashes
+- Verified server now survives 4+ consecutive requests without crashing
+- Verified page HTML renders correctly with all StreamX content (navbar, hero, movie carousels, footer)
+- Used agent-browser to confirm the app renders correctly: full Netflix-like UI with trending movies, popular movies, TV shows, etc.
+
+Stage Summary:
+- Preview panel blank issue was caused by unstable dev server (pipe-based crash + not binding to 0.0.0.0)
+- Fixed dev script to use direct file redirect instead of pipe, and added -H 0.0.0.0 flag
+- Server now stable and accessible from the Caddy gateway on port 81
+- App fully renders: StreamX homepage with movie/TV content, navbar, footer, mobile nav
