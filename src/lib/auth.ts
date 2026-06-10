@@ -4,6 +4,20 @@ import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+// Validate NEXTAUTH_SECRET at module load time — block startup if missing in production
+if (!process.env.NEXTAUTH_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FATAL: NEXTAUTH_SECRET is not set. Authentication cannot work without it. " +
+      "Generate one with: openssl rand -base64 32"
+    );
+  }
+  console.warn(
+    "WARNING: NEXTAUTH_SECRET is not set. Using insecure default for development only. " +
+    "Set NEXTAUTH_SECRET before deploying to production."
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -176,5 +190,5 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV !== "production" ? "insecure-dev-only-secret-do-not-use-in-prod" : undefined),
 };
