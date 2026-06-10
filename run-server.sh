@@ -1,7 +1,12 @@
 #!/bin/bash
+# Double fork to fully detach from controlling terminal
 cd /home/z/my-project
-# Close all file descriptors except stdin/stdout/stderr
-# Redirect all output to log file
-exec >> /home/z/my-project/dev.log 2>&1
-# Start the server
-exec node node_modules/next/dist/bin/next dev -p 3000
+
+if [ "$1" = "child" ]; then
+  # This is the child - start the actual server
+  exec node .next/standalone/server.js
+else
+  # This is the parent - fork and exit
+  setsid /home/z/my-project/run-server.sh child </dev/null >> /home/z/my-project/dev.log 2>&1 &
+  exit 0
+fi

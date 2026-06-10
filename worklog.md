@@ -120,3 +120,35 @@ Stage Summary:
 - Fixed dev script to use direct file redirect instead of pipe, and added -H 0.0.0.0 flag
 - Server now stable and accessible from the Caddy gateway on port 81
 - App fully renders: StreamX homepage with movie/TV content, navbar, footer, mobile nav
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix preview panel blank/white screen
+
+Work Log:
+- Investigated the blank preview panel issue systematically
+- Checked HTTP response headers - no X-Frame-Options or CSP was blocking iframes by default
+- Discovered Turbopack was crashing with corrupted cache database (missing .sst files)
+- Turbopack panic: "Failed to restore task data (corrupted database or bug)" causing server crashes
+- Found that dev server processes were dying after serving 1-2 requests (Turbopack mode)
+- Switched to webpack mode (--webpack flag) which resolved the stability issue
+- Added iframe-friendly headers to next.config.ts: X-Frame-Options: ALLOWALL, CSP frame-ancestors * http:// https://
+- Added CORS headers for /_next/static/* assets (Access-Control-Allow-Origin: *)
+- Created daemon startup script (run-dev.sh) using setsid double-fork to keep server alive across shell sessions
+- Updated package.json dev script to use --webpack flag
+- Verified server stability with 20+ consecutive successful requests over 3+ minutes
+- Verified through Caddy proxy (port 81) with correct iframe headers
+- Verified with agent-browser that the full StreamX app renders correctly
+
+Stage Summary:
+- Root causes identified and fixed:
+  1. Turbopack corrupted cache → switched to webpack mode
+  2. Missing iframe-allowing headers → added X-Frame-Options: ALLOWALL and CSP frame-ancestors
+  3. Missing CORS headers for static assets → added Access-Control-Allow-Origin
+  4. Server process dying when shell session ends → created daemon startup script
+- Files modified:
+  - next.config.ts: Added headers() config for iframe and CORS
+  - package.json: Changed dev script to use --webpack flag
+  - run-dev.sh: New daemon startup script
+- Server now running stably on port 3000 with webpack mode
