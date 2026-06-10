@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
       allowDownloads,
       allowOffline,
       features,
-      stripePriceId,
       active,
       order,
       planId, // If provided, update existing plan
@@ -118,7 +117,6 @@ export async function POST(req: NextRequest) {
           allowDownloads: allowDownloads ?? false,
           allowOffline: allowOffline ?? false,
           features: features || null,
-          stripePriceId: stripePriceId || null,
           active: active ?? true,
           order: order ?? 0,
         },
@@ -149,7 +147,6 @@ export async function POST(req: NextRequest) {
           allowDownloads: allowDownloads ?? false,
           allowOffline: allowOffline ?? false,
           features: features || null,
-          stripePriceId: stripePriceId || null,
           active: active ?? true,
           order: order ?? 0,
         },

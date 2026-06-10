@@ -10,12 +10,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Only initialize Firebase if we have the minimum required config
+const hasFirebaseConfig = firebaseConfig.apiKey && firebaseConfig.projectId;
+
+let app: any = null;
+
+if (hasFirebaseConfig) {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+}
 
 let messaging: ReturnType<typeof getMessaging> | null = null;
 
 export async function getFirebaseMessaging() {
   if (typeof window === 'undefined') return null;
+  if (!app) return null;
   const supported = await isSupported();
   if (!supported) return null;
   if (!messaging) {

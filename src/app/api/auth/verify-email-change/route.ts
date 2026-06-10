@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
       where: {
         userId,
         code: oldEmailCode,
-        type: 'old_email',
         used: false,
         expiresAt: { gt: new Date() },
       },
@@ -44,7 +43,6 @@ export async function POST(req: NextRequest) {
       where: {
         userId,
         code: newEmailCode,
-        type: 'new_email',
         used: false,
         expiresAt: { gt: new Date() },
       },

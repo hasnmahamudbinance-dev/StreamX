@@ -49,12 +49,15 @@ export async function POST(req: NextRequest) {
     // Generate new recovery codes
     const codes = generateRecoveryCodes(10);
 
-    // Store new recovery codes
-    await db.recoveryCode.createMany({
-      data: codes.map((code) => ({
+    // Store new recovery codes (hashed)
+    const hashedCodes = await Promise.all(
+      codes.map(async (code) => ({
         userId,
-        code,
-      })),
+        codeHash: await bcrypt.hash(code, 10),
+      }))
+    );
+    await db.recoveryCode.createMany({
+      data: hashedCodes,
     });
 
     return NextResponse.json({ codes });

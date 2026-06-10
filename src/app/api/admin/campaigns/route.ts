@@ -70,18 +70,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      name,
       subject,
       body: campaignBody,
       type,
-      targetAudience,
       status,
       scheduledAt,
     } = body;
 
-    if (!name || !subject || !campaignBody) {
+    if (!subject || !campaignBody) {
       return NextResponse.json(
-        { success: false, error: "Name, subject, and body are required" },
+        { success: false, error: "Subject and body are required" },
         { status: 400 }
       );
     }
@@ -90,14 +88,6 @@ export async function POST(req: NextRequest) {
     if (type && !validTypes.includes(type)) {
       return NextResponse.json(
         { success: false, error: `Invalid campaign type. Must be one of: ${validTypes.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    const validAudiences = ["all", "free", "premium", "inactive"];
-    if (targetAudience && !validAudiences.includes(targetAudience)) {
-      return NextResponse.json(
-        { success: false, error: `Invalid target audience. Must be one of: ${validAudiences.join(", ")}` },
         { status: 400 }
       );
     }
@@ -112,11 +102,9 @@ export async function POST(req: NextRequest) {
 
     const campaign = await db.emailCampaign.create({
       data: {
-        name,
         subject,
         body: campaignBody,
-        type: type || "custom",
-        targetAudience: targetAudience || "all",
+        type: type || "marketing",
         status: status || "draft",
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
@@ -127,7 +115,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: (session.user as Record<string, unknown>).id as string,
         action: "CREATE_EMAIL_CAMPAIGN",
-        details: `Created email campaign: ${name} (${type || "custom"})`,
+        details: `Created email campaign: ${subject} (${type || "marketing"})`,
       },
     });
 

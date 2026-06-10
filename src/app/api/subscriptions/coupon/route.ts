@@ -29,13 +29,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check expiration
-    if (coupon.validUntil && new Date(coupon.validUntil) < new Date()) {
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
       return NextResponse.json({ error: "This coupon has expired" }, { status: 400 });
-    }
-
-    // Check if not yet valid
-    if (new Date(coupon.validFrom) > new Date()) {
-      return NextResponse.json({ error: "This coupon is not yet active" }, { status: 400 });
     }
 
     // Check usage limit
@@ -46,7 +41,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       discountType: coupon.discountType,
       discountValue: coupon.discountValue,
-      description: coupon.description,
     });
   } catch (error) {
     console.error("Validate coupon error:", error);

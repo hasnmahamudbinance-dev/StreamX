@@ -38,13 +38,12 @@ export async function DELETE(
       data: {
         userId,
         action: 'session_removed',
-        deviceName: userSession.deviceName || undefined,
-        platform: userSession.platform || undefined,
-        browser: userSession.browser || undefined,
         ipAddress: userSession.ipAddress || undefined,
+        userAgent: userSession.browser || undefined,
         details: JSON.stringify({
           sessionId: id,
           deviceName: userSession.deviceName,
+          platform: userSession.platform,
         }),
       },
     });

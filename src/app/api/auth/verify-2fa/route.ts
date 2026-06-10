@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyTOTP } from '@/lib/two-factor';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,19 +26,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check recovery code first
-    const recoveryCode = await db.recoveryCode.findFirst({
+    // Check recovery code first (codes are hashed, so compare by hashing)
+    const unusedRecoveryCodes = await db.recoveryCode.findMany({
       where: {
         userId,
-        code,
         used: false,
       },
     });
 
-    if (recoveryCode) {
+    let matchedRecoveryCode = null;
+    for (const rc of unusedRecoveryCodes) {
+      const isMatch = await bcrypt.compare(code, rc.codeHash);
+      if (isMatch) {
+        matchedRecoveryCode = rc;
+        break;
+      }
+    }
+
+    if (matchedRecoveryCode) {
       // Mark recovery code as used
       await db.recoveryCode.update({
-        where: { id: recoveryCode.id },
+        where: { id: matchedRecoveryCode.id },
         data: {
           used: true,
           usedAt: new Date(),

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { generateSecret, buildOtpauthUri, generateRecoveryCodes } from '@/lib/two-factor';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,12 +67,15 @@ export async function POST(req: NextRequest) {
     // Delete any existing recovery codes first
     await db.recoveryCode.deleteMany({ where: { userId } });
 
-    // Store recovery codes
-    await db.recoveryCode.createMany({
-      data: recoveryCodes.map((code) => ({
+    // Store recovery codes (hashed)
+    const hashedCodes = await Promise.all(
+      recoveryCodes.map(async (code) => ({
         userId,
-        code,
-      })),
+        codeHash: await bcrypt.hash(code, 10),
+      }))
+    );
+    await db.recoveryCode.createMany({
+      data: hashedCodes,
     });
 
     // Log activity

@@ -59,10 +59,9 @@ export async function POST(req: NextRequest) {
         action: "CAMPAIGN_SENT",
         details: JSON.stringify({
           campaignId,
-          campaignName: campaign.name,
+          campaignSubject: campaign.subject,
           campaignType: campaign.type,
           recipientCount,
-          targetAudience: campaign.targetAudience,
         }),
       },
     });
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         id: updatedCampaign.id,
-        name: updatedCampaign.name,
+        subject: updatedCampaign.subject,
         status: updatedCampaign.status,
         sentAt: updatedCampaign.sentAt,
         recipientCount: updatedCampaign.recipientCount,

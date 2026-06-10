@@ -16,10 +16,10 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Mask codes: show first 4 chars + ****
+    // Mask codes: show partial hash since codes are stored hashed
     const codes = recoveryCodes.map((rc) => ({
       id: rc.id,
-      code: rc.code.slice(0, 4) + '-****',
+      code: rc.codeHash.slice(0, 8) + '-****',
       used: rc.used,
       usedAt: rc.usedAt,
     }));

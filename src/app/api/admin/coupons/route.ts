@@ -67,13 +67,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       code,
-      description,
       discountType,
       discountValue,
       maxUses,
-      validFrom,
-      validUntil,
-      planId,
+      expiresAt,
       active,
     } = body;
 
@@ -113,13 +110,10 @@ export async function POST(req: NextRequest) {
     const coupon = await db.coupon.create({
       data: {
         code: code.toUpperCase(),
-        description: description || null,
         discountType,
         discountValue: parseFloat(discountValue),
         maxUses: maxUses ?? -1,
-        validFrom: validFrom ? new Date(validFrom) : new Date(),
-        validUntil: validUntil ? new Date(validUntil) : null,
-        planId: planId || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
         active: active ?? true,
       },
     });

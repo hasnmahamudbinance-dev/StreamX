@@ -589,3 +589,55 @@ export interface TMDBPersonSearchResult {
   total_pages: number;
   total_results: number;
 }
+
+// ─── Missing Client-Side Types ──────────────────────────────────────
+
+export interface DeviceSession {
+  id: string;
+  deviceName?: string | null;
+  platform?: string | null;
+  browser?: string | null;
+  ipAddress?: string | null;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+export interface DownloadItem {
+  id: string;
+  userId: string;
+  contentId: string;
+  contentType: string;
+  title: string;
+  posterPath: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
+  quality: string;
+  fileSize: number;
+  status: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface AudioTrackItem {
+  id: string;
+  contentId: string;
+  episodeId: string | null;
+  language: string;
+  label: string;
+  url: string | null;
+  isDefault: boolean;
+}
+
+export interface UserProfile {
+  id: string;
+  userId: string;
+  profileName: string;
+  avatar: string | null;
+  isKids: boolean;
+  isDefault: boolean;
+  pin: string | null;
+  language: string;
+  autoplay: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
