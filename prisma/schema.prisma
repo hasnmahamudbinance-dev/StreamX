@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -25,7 +25,6 @@ model User {
   twoFactorEnabled      Boolean   @default(false)
   twoFactorMethod       String?   // "email" or "app"
   twoFactorSecret       String?   // TOTP secret for authenticator apps
-  recoveryCodes         String?   // JSON array of recovery codes
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -48,6 +47,10 @@ model User {
   sessions              UserSession[]
   profiles              Profile[]
   subscriptions         Subscription[]
+  activityLogs          ActivityLog[]
+  twoFactorCodes        TwoFactorCode[]
+  emailChangeCodes      EmailChangeCode[]
+  recoveryCodes         RecoveryCode[]
   favorites             Favorite[]
 }
 
@@ -667,6 +670,87 @@ model Coupon {
 
   @@index([code])
   @@index([active])
+}
+
+// ─── Activity & Security Models ──────────────────────────────────
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // "login", "logout", "password_change", "2fa_enable", "2fa_disable", "email_change", "profile_update"
+  details     String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TwoFactorCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model EmailChangeCode {
+  id        String   @id @default(cuid())
+  userId    String
+  newEmail  String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+model RecoveryCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String   // hashed recovery code
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([codeHash])
+}
+
+model EmailCampaign {
+  id          String   @id @default(cuid())
+  subject     String
+  body        String
+  type        String   @default("marketing") // "marketing", "transactional", "newsletter"
+  status      String   @default("draft")     // "draft", "scheduled", "sending", "sent", "failed"
+  recipientCount Int   @default(0)
+  sentCount   Int      @default(0)
+  openedCount Int      @default(0)
+  clickedCount Int     @default(0)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ─── Favorites Model ────────────────────────────────────────────

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       html: passwordResetEmailHtml(code),
     });
 
-    return NextResponse.json({ message: "Reset code sent", resetCode: code });
+    return NextResponse.json({ message: "Reset code sent to your email" });
   } catch (error) {
     console.error("Forgot password error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

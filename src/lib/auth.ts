@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
@@ -89,11 +90,69 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+    // Google OAuth — only enabled when env vars are set
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      // Handle Google OAuth sign-in — auto-create user if not exists
+      if (account?.provider === 'google' && user.email) {
+        try {
+          const existingUser = await db.user.findUnique({
+            where: { email: user.email },
+          });
+
+          if (!existingUser) {
+            // Auto-create user from Google profile
+            const newUser = await db.user.create({
+              data: {
+                email: user.email,
+                name: user.name || user.email.split('@')[0],
+                password: await bcrypt.hash(Math.random().toString(36), 12), // random password for OAuth users
+                role: 'user',
+                emailVerified: true, // Google emails are pre-verified
+                status: 'active',
+              },
+            });
+            (user as any).id = newUser.id;
+            (user as any).role = newUser.role;
+            (user as any).emailVerified = newUser.emailVerified;
+            (user as any).status = newUser.status;
+          } else {
+            // Check if account is suspended/deleted
+            if (existingUser.status === 'suspended' || existingUser.status === 'deleted') {
+              return false;
+            }
+            (user as any).id = existingUser.id;
+            (user as any).role = existingUser.role;
+            (user as any).emailVerified = existingUser.emailVerified;
+            (user as any).status = existingUser.status;
+
+            // Mark email as verified if it wasn't already
+            if (!existingUser.emailVerified) {
+              await db.user.update({
+                where: { id: existingUser.id },
+                data: { emailVerified: true },
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Google OAuth sign-in error:', error);
+          return false;
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id = (user as any).id || user.id;
         token.role = (user as any).role;
         token.emailVerified = (user as any).emailVerified;
         token.status = (user as any).status;

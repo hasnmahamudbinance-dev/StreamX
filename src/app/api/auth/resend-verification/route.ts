@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       html: verificationEmailHtml(code),
     });
 
-    return NextResponse.json({ message: "Verification code sent", verificationCode: code });
+    return NextResponse.json({ message: "Verification code sent to your email" });
   } catch (error) {
     console.error("Resend verification error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
