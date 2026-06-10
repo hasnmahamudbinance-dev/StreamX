@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  allowedDevOrigins: ["21.0.12.155"],
+  allowedDevOrigins: ["21.0.12.155", "0.0.0.0", ".space-z.ai"],
   async rewrites() {
     return [
       {

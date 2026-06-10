@@ -71,3 +71,22 @@ Stage Summary:
 - The previous "URL must start with postgresql://" error was caused by system env variable override, not the connection string parameters
 - All database operations (queries, inserts) functioning normally
 - App fully operational on Neon PostgreSQL
+---
+Task ID: 4
+Agent: main
+Task: Fix deployment issues with Neon PostgreSQL database
+
+Work Log:
+- Restored DATABASE_URL to Neon PostgreSQL with channel_binding=require&sslmode=require
+- Fixed package.json dev script: quoted DATABASE_URL to prevent shell interpreting & as background operator
+- Added allowedDevOrigins for ".space-z.ai" and "0.0.0.0" to fix cross-origin blocking in preview
+- Removed obsolete start-dev.sh script
+- Cleaned .next cache and restarted dev server
+- Verified all API endpoints returning 200 with no errors
+- Verified with Agent Browser - app renders correctly
+
+Stage Summary:
+- Neon PostgreSQL connection fully working with channel_binding=require&sslmode=require
+- Cross-origin blocking fixed for preview panel
+- No 500 errors in dev log
+- App fully operational
