@@ -27,3 +27,28 @@ Stage Summary:
 - Favorites page shows filter tabs (All/Movies/TV Shows) and proper empty state
 - All API routes (/api/subscriptions/plans, /api/subscriptions/current, /api/favorites) working
 - Navigation works: top nav Favorites link, user menu Billing/Favorites links
+---
+Task ID: 2
+Agent: main
+Task: Migrate database from SQLite to Neon PostgreSQL
+
+Work Log:
+- Updated Prisma schema provider from "sqlite" to "postgresql"
+- Updated .env file with Neon PostgreSQL connection string
+- Discovered system environment variable DATABASE_URL was overriding .env file with old SQLite path
+- Removed unsupported `channel_binding=require` parameter from connection string
+- Added DATABASE_URL to package.json dev script to override system env variable
+- Pushed Prisma schema to Neon PostgreSQL database (all 30+ models)
+- Regenerated Prisma client for PostgreSQL
+- Updated seed script to include subscription plans (Free, Premium, Family)
+- Ran seed script against PostgreSQL database successfully
+- Verified all API endpoints returning 200 with PostgreSQL queries
+- Tested with Agent Browser - app renders correctly
+
+Stage Summary:
+- Database successfully migrated from SQLite to Neon PostgreSQL
+- All 30+ Prisma models created in PostgreSQL
+- Seed data created: admin user, demo user, collections, notifications, 3 subscription plans
+- System env DATABASE_URL override resolved by adding it to dev script
+- All API endpoints working with PostgreSQL: /api/subscriptions/plans, /api/content/published, /api/session, /api/notifications, /api/watchlist, /api/progress, /api/recommendations
+- App fully functional with PostgreSQL backend

@@ -80,6 +80,75 @@ async function main() {
   });
 
   console.log('Notifications created');
+
+  // Create subscription plans
+  const freePlan = await prisma.subscriptionPlan.upsert({
+    where: { name: 'free' },
+    update: {},
+    create: {
+      name: 'free',
+      displayName: 'Free',
+      description: 'Get started with basic streaming',
+      price: 0,
+      currency: 'USD',
+      interval: 'month',
+      maxResolution: '720p',
+      maxDevices: 1,
+      maxProfiles: 1,
+      allowDownloads: false,
+      allowOffline: false,
+      trialDays: 0,
+      features: JSON.stringify(['HD streaming', 'Limited content library', '1 device', 'Ad-supported']),
+      active: true,
+      order: 1,
+    },
+  });
+
+  const premiumPlan = await prisma.subscriptionPlan.upsert({
+    where: { name: 'premium' },
+    update: {},
+    create: {
+      name: 'premium',
+      displayName: 'Premium',
+      description: 'The best streaming experience',
+      price: 9.99,
+      currency: 'USD',
+      interval: 'month',
+      maxResolution: '4k',
+      maxDevices: 4,
+      maxProfiles: 5,
+      allowDownloads: true,
+      allowOffline: true,
+      trialDays: 7,
+      features: JSON.stringify(['4K Ultra HD', 'Full content library', '4 devices', 'No ads', 'Downloads', 'Offline viewing', 'Priority support']),
+      active: true,
+      order: 2,
+    },
+  });
+
+  const familyPlan = await prisma.subscriptionPlan.upsert({
+    where: { name: 'family' },
+    update: {},
+    create: {
+      name: 'family',
+      displayName: 'Family',
+      description: 'Perfect for the whole family',
+      price: 14.99,
+      currency: 'USD',
+      interval: 'month',
+      maxResolution: '4k',
+      maxDevices: 6,
+      maxProfiles: 8,
+      allowDownloads: true,
+      allowOffline: true,
+      trialDays: 14,
+      features: JSON.stringify(['4K Ultra HD', 'Full content library', '6 devices', 'No ads', 'Downloads', 'Offline viewing', 'Kids profiles', 'Family sharing']),
+      active: true,
+      order: 3,
+    },
+  });
+
+  console.log('Subscription plans created:', freePlan.name, premiumPlan.name, familyPlan.name);
 }
 
 main()

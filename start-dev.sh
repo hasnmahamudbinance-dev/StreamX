@@ -1,7 +1,3 @@
 #!/bin/bash
-while true; do
-  cd /home/z/my-project
-  node node_modules/.bin/next dev -p 3000 > /home/z/my-project/dev.log 2>&1
-  echo "Server crashed at $(date), restarting in 2s..." >> /home/z/my-project/dev.log
-  sleep 2
-done
+export DATABASE_URL="postgresql://neondb_owner:npg_35jrENAMfdny@ep-divine-glitter-aoj0xlcg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+exec node ./node_modules/next/dist/bin/next dev -p 3000 2>&1 | tee /home/z/my-project/dev.log
