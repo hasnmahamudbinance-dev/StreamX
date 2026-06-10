@@ -55,3 +55,45 @@ Stage Summary:
 - Development sender: StreamX <onboarding@resend.dev>
 - Production TODO: Add custom domain (streamx.app), verify DNS records, change EMAIL_FROM
 - EmailLog table provides full audit trail of all sent emails
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Audit and fix email verification emails not being sent during signup
+
+Work Log:
+- Audited entire authentication email flow: register → email.ts → Resend API
+- Identified 5 bugs causing verification emails to silently fail:
+  1. sendEmail() never throws — register route's try/catch was dead code
+  2. Resend API errors silently caught → fell back to demo provider (returns true = false success)
+  3. onboarding@resend.dev sandbox domain can ONLY send to account owner's email (hasnmahamudbinance@gmail.com)
+  4. Register route didn't check sendEmail() return value
+  5. No detailed logging — errors vanished silently
+- Fixed src/lib/email.ts:
+  - Added startup diagnostics (env var validation, sandbox domain warning)
+  - Added detailed console logs at every step of the email pipeline
+  - Added parameter validation (to, subject, html must be non-empty)
+  - Removed silent demo fallback on Resend failure — now returns false instead of masking failure
+  - Added actionable error hints for 403/422 errors (sandbox domain guidance)
+  - Added provider tracking in EmailLog entries
+- Fixed src/app/api/register/route.ts:
+  - Removed dead try/catch around sendEmail() (it never throws)
+  - Now checks sendEmail() return value and logs detailed failure diagnostics
+  - Added emailSent boolean to API response for frontend debugging
+  - Added step-by-step logging throughout registration flow
+- Fixed src/app/api/auth/resend-verification/route.ts:
+  - Same pattern: checks sendEmail() return, returns 500 error if email fails
+  - Added detailed logging
+- Fixed src/app/api/auth/verify-email/route.ts:
+  - Added detailed logging for verification attempts
+- Fixed src/app/api/auth/forgot-password/route.ts:
+  - Added detailed logging, checks sendEmail() return value
+- Tested end-to-end: Resend API returns 403 for non-owner emails with clear error message
+- Confirmed root cause: onboarding@resend.dev is a sandbox domain that can only send to the Resend account owner's email
+
+Stage Summary:
+- ROOT CAUSE: Resend's onboarding@resend.dev sandbox domain can only send emails to the account owner (hasnmahamudbinance@gmail.com). All other recipients get 403 Forbidden.
+- FIX APPLIED: Removed silent demo fallback; sendEmail() now correctly returns false when Resend fails, so callers can detect and report failures
+- All email pipeline steps now have detailed [email] and [register] prefixed logs
+- EmailSent status included in register API response
+- TO ACTUALLY FIX EMAIL DELIVERY: Verify a custom domain in Resend dashboard → update EMAIL_FROM to use that domain

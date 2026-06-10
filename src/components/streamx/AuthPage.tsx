@@ -258,7 +258,15 @@ export function AuthPage({ mode: initialMode }: AuthPageProps) {
 
       // Registration successful — redirect to verify email
       setVerificationEmail(email.trim());
-      setSuccess('Account created! Please check your email for a verification code.');
+
+      if (data.emailSent === false) {
+        // Email was NOT actually delivered — show warning but still allow manual verification
+        setSuccess('Account created, but the verification email could not be sent. You can request a new code below, or try a different email address.');
+        console.warn('[AuthPage] Registration succeeded but email was NOT delivered. emailSent=false');
+      } else {
+        setSuccess('Account created! Please check your email for a verification code.');
+      }
+
       setCooldown(60);
       setCanResend(false);
       setMode('verify-email');

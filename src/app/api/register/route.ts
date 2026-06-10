@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { email, name, password } = body;
 
+    console.log(`[register] Signup attempt — email="${email}", name="${name || '(not provided)'}"`);
+
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -52,6 +54,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingUser) {
+      console.log(`[register] ❌ Duplicate email — user already exists: ${email}`);
       return NextResponse.json(
         { error: "An account with this email already exists" },
         { status: 409 }
@@ -72,6 +75,7 @@ export async function POST(req: NextRequest) {
         emailVerified: false,
       },
     });
+    console.log(`[register] ✅ User created — id=${user.id}, email=${user.email}, status=${user.status}`);
 
     // Generate and store verification code
     const verificationCode = generateVerificationCode();
@@ -82,6 +86,7 @@ export async function POST(req: NextRequest) {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       },
     });
+    console.log(`[register] ✅ Verification code stored — code=${verificationCode}, userId=${user.id}`);
 
     // Create default profile
     await db.profile.create({
@@ -91,18 +96,28 @@ export async function POST(req: NextRequest) {
         isDefault: true,
       },
     });
+    console.log(`[register] ✅ Default profile created for userId=${user.id}`);
 
-    // Send verification email
-    try {
-      await sendEmail({
-        to: email,
-        subject: 'StreamX - Verify Your Email',
-        type: 'verification',
-        html: verificationEmailHtml(verificationCode),
-      });
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-      // Don't fail registration if email fails, just log it
+    // Send verification email — CHECK the return value instead of relying on try/catch
+    // (sendEmail never throws — it catches all errors internally and returns false)
+    console.log(`[register] → Sending verification email to: ${email}`);
+    const emailSent = await sendEmail({
+      to: email,
+      subject: 'StreamX - Verify Your Email',
+      type: 'verification',
+      html: verificationEmailHtml(verificationCode),
+    });
+
+    if (!emailSent) {
+      console.error(`[register] ❌ Verification email FAILED to send for userId=${user.id}, email=${email}`);
+      console.error('[register]    The user was created but will NOT receive a verification email.');
+      console.error('[register]    Possible causes:');
+      console.error('[register]      1. RESEND_API_KEY is missing or invalid');
+      console.error('[register]      2. EMAIL_FROM uses Resend sandbox domain (onboarding@resend.dev) — can only send to account owner');
+      console.error('[register]      3. Resend API returned an error (422/403)');
+      console.error('[register]      4. Network error connecting to Resend API');
+    } else {
+      console.log(`[register] ✅ Verification email sent successfully to: ${email}`);
     }
 
     return NextResponse.json(
@@ -115,11 +130,12 @@ export async function POST(req: NextRequest) {
           status: user.status,
         },
         requiresVerification: true,
+        emailSent,  // Include email delivery status in response for debugging
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("[register] ❌ Registration error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

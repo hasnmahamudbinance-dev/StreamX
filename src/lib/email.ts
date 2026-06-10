@@ -3,6 +3,21 @@
 import { db } from './db';
 
 // ---------------------------------------------------------------------------
+// Startup diagnostics — log email config once at module load
+// ---------------------------------------------------------------------------
+
+console.log('[email] Module loaded — diagnosing email configuration:');
+console.log('[email]   EMAIL_PROVIDER  =', process.env.EMAIL_PROVIDER || '(not set)');
+console.log('[email]   RESEND_API_KEY  =', process.env.RESEND_API_KEY ? `set (${process.env.RESEND_API_KEY.slice(0, 6)}…${process.env.RESEND_API_KEY.slice(-4)})` : '(not set)');
+console.log('[email]   EMAIL_FROM      =', process.env.EMAIL_FROM || '(not set — will use fallback)');
+if (process.env.EMAIL_FROM?.includes('onboarding@resend.dev')) {
+  console.warn('[email] ⚠️  EMAIL_FROM uses Resend sandbox domain (onboarding@resend.dev).');
+  console.warn('[email]    Resend sandbox can ONLY send to the account owner\'s email address.');
+  console.warn('[email]    All other recipients will be rejected by the Resend API (422/403).');
+  console.warn('[email]    To fix: verify a custom domain in Resend and update EMAIL_FROM.');
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -31,9 +46,13 @@ type EmailProvider = 'resend' | 'demo';
 
 function getEmailProvider(): EmailProvider {
   const provider = process.env.EMAIL_PROVIDER?.toLowerCase();
-  if (provider === 'resend' && process.env.RESEND_API_KEY) {
+  const hasApiKey = !!process.env.RESEND_API_KEY;
+  console.log(`[email] getEmailProvider() → provider env="${provider}", RESEND_API_KEY present=${hasApiKey}`);
+  if (provider === 'resend' && hasApiKey) {
+    console.log('[email] → Selected provider: resend');
     return 'resend';
   }
+  console.log('[email] → Selected provider: demo (resend not configured or EMAIL_PROVIDER not set to "resend")');
   return 'demo';
 }
 
@@ -42,8 +61,25 @@ function getEmailProvider(): EmailProvider {
 // ---------------------------------------------------------------------------
 
 async function sendWithResend(to: string, subject: string, html: string): Promise<boolean> {
+  console.log(`[email] sendWithResend() called — to="${to}", subject="${subject}"`);
+
+  // Validate env vars before attempting API call
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[email] ❌ RESEND_API_KEY is not set — cannot send via Resend');
+    return false;
+  }
+
+  const from = process.env.EMAIL_FROM || 'StreamX <noreply@streamx.com>';
+  console.log(`[email]   from="${from}"`);
+
+  // Warn about sandbox domain limitation
+  if (from.includes('onboarding@resend.dev')) {
+    console.warn('[email] ⚠️  Using Resend sandbox domain (onboarding@resend.dev) — emails can ONLY be sent to the Resend account owner\'s email.');
+    console.warn(`[email]    Attempting to send to: ${to} — if this is NOT the Resend account owner\'s email, the API will reject it.`);
+  }
+
   try {
-    const from = process.env.EMAIL_FROM || 'StreamX <noreply@streamx.com>';
+    console.log('[email] → Sending POST to https://api.resend.com/emails …');
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -59,15 +95,30 @@ async function sendWithResend(to: string, subject: string, html: string): Promis
       }),
     });
 
+    console.log(`[email] ← Resend API responded: status=${response.status} ${response.statusText}`);
+
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => 'Unknown error');
-      console.error(`Resend API error (${response.status}): ${errorBody}`);
+      const errorBody = await response.text().catch(() => 'Unable to read response body');
+      console.error(`[email] ❌ Resend API error (${response.status}): ${errorBody}`);
+
+      // Provide actionable guidance for common errors
+      if (response.status === 403 || response.status === 422) {
+        if (from.includes('onboarding@resend.dev')) {
+          console.error('[email] 💡 HINT: You are using the Resend sandbox domain (onboarding@resend.dev). It can ONLY send to the Resend account owner\'s email.');
+          console.error('[email]    To send to any address: verify a custom domain in Resend dashboard → update EMAIL_FROM env var.');
+        } else {
+          console.error('[email] 💡 HINT: 422/403 may mean the recipient domain is not verified in Resend, or the from address is not authorized.');
+        }
+      }
+
       return false;
     }
 
+    const responseBody = await response.text().catch(() => '');
+    console.log(`[email] ✅ Resend API success — response: ${responseBody.slice(0, 200)}`);
     return true;
   } catch (error) {
-    console.error('Resend send error:', error);
+    console.error('[email] ❌ Resend send exception:', error);
     return false;
   }
 }
@@ -77,7 +128,8 @@ async function sendWithResend(to: string, subject: string, html: string): Promis
 // ---------------------------------------------------------------------------
 
 async function sendWithDemo(to: string, subject: string, type: EmailType): Promise<boolean> {
-  console.log(`📧 [Demo] Email sent to: ${to}, Subject: ${subject}, Type: ${type}`);
+  console.log(`[email] 📧 [Demo provider] Simulated email — to: ${to}, subject: ${subject}, type: ${type}`);
+  console.log('[email] ⚠️  No real email was delivered — demo provider only logs to console.');
   return true;
 }
 
@@ -86,42 +138,73 @@ async function sendWithDemo(to: string, subject: string, type: EmailType): Promi
 // ---------------------------------------------------------------------------
 
 export async function sendEmail({ to, subject, type, html }: EmailParams): Promise<boolean> {
+  console.log(`[email] sendEmail() called — to="${to}", subject="${subject}", type="${type}"`);
+
+  // Validate required params
+  if (!to) {
+    console.error('[email] ❌ sendEmail() aborted — "to" is empty/undefined');
+    return false;
+  }
+  if (!subject) {
+    console.error('[email] ❌ sendEmail() aborted — "subject" is empty/undefined');
+    return false;
+  }
+  if (!html) {
+    console.error('[email] ❌ sendEmail() aborted — "html" is empty/undefined');
+    return false;
+  }
+
   const provider = getEmailProvider();
 
   try {
     let sendResult = false;
+    let usedProvider = provider;
 
     if (provider === 'resend') {
       // Attempt Resend delivery
       sendResult = await sendWithResend(to, subject, html);
 
       if (!sendResult) {
-        // Fallback to demo on Resend failure
-        console.warn('Resend failed, falling back to demo provider');
-        sendResult = await sendWithDemo(to, subject, type);
+        // CRITICAL: Do NOT silently fall back to demo and return true.
+        // Previous code fell back to demo which returned true, making the
+        // caller think the email was sent when it was NOT.
+        // Now: log the failure for audit and return false so the caller
+        // knows the email was NOT actually delivered.
+        console.error('[email] ❌ Resend delivery failed — email was NOT delivered to the recipient.');
+        console.error('[email]    The demo fallback has been removed to prevent silent email loss.');
+        console.error('[email]    If you want demo mode, set EMAIL_PROVIDER=demo in your .env');
+        usedProvider = 'resend-failed';
       }
     } else {
-      // Demo provider
+      // Demo provider (only used when explicitly configured)
       sendResult = await sendWithDemo(to, subject, type);
     }
 
+    console.log(`[email] sendEmail() result — success=${sendResult}, provider=${usedProvider}, to=${to}`);
+
     // Always log to EmailLog table for audit trail
-    await db.emailLog.create({
-      data: {
-        to,
-        subject,
-        type,
-        status: sendResult ? 'sent' : 'failed',
-      },
-    });
+    try {
+      await db.emailLog.create({
+        data: {
+          to,
+          subject,
+          type,
+          status: sendResult ? 'sent' : 'failed',
+          error: sendResult ? null : `Provider: ${usedProvider} — email was not delivered`,
+        },
+      });
+      console.log('[email] EmailLog entry created successfully');
+    } catch (dbError) {
+      console.error('[email] ❌ Failed to write EmailLog entry:', dbError);
+    }
 
     return sendResult;
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error('[email] ❌ sendEmail() unexpected error:', error);
 
     // Attempt to log failure to database
-    await db.emailLog
-      .create({
+    try {
+      await db.emailLog.create({
         data: {
           to,
           subject,
@@ -129,8 +212,10 @@ export async function sendEmail({ to, subject, type, html }: EmailParams): Promi
           status: 'failed',
           error: String(error),
         },
-      })
-      .catch(() => {});
+      });
+    } catch (dbError) {
+      console.error('[email] ❌ Failed to write failure EmailLog entry:', dbError);
+    }
 
     return false;
   }
