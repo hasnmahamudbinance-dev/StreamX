@@ -52,3 +52,22 @@ Stage Summary:
 - System env DATABASE_URL override resolved by adding it to dev script
 - All API endpoints working with PostgreSQL: /api/subscriptions/plans, /api/content/published, /api/session, /api/notifications, /api/watchlist, /api/progress, /api/recommendations
 - App fully functional with PostgreSQL backend
+---
+Task ID: 3
+Agent: main
+Task: Switch DATABASE_URL back to Neon PostgreSQL with channel_binding=require&sslmode=require
+
+Work Log:
+- Updated .env DATABASE_URL to postgresql://neondb_owner:npg_35jrENAMfdny@ep-divine-glitter-aoj0xlcg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+- Updated package.json dev script with same DATABASE_URL to override system env variable
+- Pushed Prisma schema - database already in sync
+- Seeded database (admin, demo user, collections, notifications, subscription plans)
+- Restarted dev server with cleared .next cache
+- Verified all API endpoints returning 200
+- Verified with Agent Browser - app renders correctly
+
+Stage Summary:
+- Neon PostgreSQL connection with channel_binding=require&sslmode=require working correctly
+- The previous "URL must start with postgresql://" error was caused by system env variable override, not the connection string parameters
+- All database operations (queries, inserts) functioning normally
+- App fully operational on Neon PostgreSQL
