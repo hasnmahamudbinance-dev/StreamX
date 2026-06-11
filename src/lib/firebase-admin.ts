@@ -2,6 +2,7 @@ let admin: any = null;
 let initialized = false;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   admin = require('firebase-admin');
   
   if (!admin.apps || !admin.apps.length) {
