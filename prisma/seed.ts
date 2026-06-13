@@ -4,22 +4,31 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const hashedPassword = await bcrypt.hash('admin123', 12);
-  
+  // ─── Admin Account ─────────────────────────────────────────────
+  const adminPassword = await bcrypt.hash('StreamX@2026', 12);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@streamx.com' },
-    update: {},
-    create: {
-      email: 'admin@streamx.com',
-      name: 'Admin',
-      password: hashedPassword,
+    where: { email: 'hasnmahamudbinance@gmail.com' },
+    update: {
+      password: adminPassword,
       role: 'admin',
+      status: 'active',
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+    },
+    create: {
+      email: 'hasnmahamudbinance@gmail.com',
+      name: 'Admin',
+      password: adminPassword,
+      role: 'admin',
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      status: 'active',
     },
   });
 
   console.log('Admin user created:', admin.email);
 
-  // Create a demo user
+  // ─── Demo User ─────────────────────────────────────────────────
   const userPassword = await bcrypt.hash('user123', 12);
   const user = await prisma.user.upsert({
     where: { email: 'user@streamx.com' },
@@ -29,12 +38,15 @@ async function main() {
       name: 'Demo User',
       password: userPassword,
       role: 'user',
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      status: 'active',
     },
   });
 
   console.log('Demo user created:', user.email);
 
-  // Create some featured collections
+  // ─── Featured Collections ──────────────────────────────────────
   const actionCollection = await prisma.collection.upsert({
     where: { id: 'action-hits' },
     update: {},
@@ -63,7 +75,7 @@ async function main() {
 
   console.log('Collections created');
 
-  // Create some notifications
+  // ─── Notifications ─────────────────────────────────────────────
   await prisma.notification.createMany({
     data: [
       {
@@ -77,11 +89,12 @@ async function main() {
         type: 'announcement',
       },
     ],
+    skipDuplicates: true,
   });
 
   console.log('Notifications created');
 
-  // Create subscription plans
+  // ─── Subscription Plans ────────────────────────────────────────
   const freePlan = await prisma.subscriptionPlan.upsert({
     where: { name: 'free' },
     update: {},

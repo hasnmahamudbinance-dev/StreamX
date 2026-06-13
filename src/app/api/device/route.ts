@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as Record<string, unknown>).id as string;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     // Get IP from request headers
     const forwarded = request.headers.get('x-forwarded-for');

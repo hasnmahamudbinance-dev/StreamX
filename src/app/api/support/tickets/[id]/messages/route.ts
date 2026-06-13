@@ -15,7 +15,10 @@ export async function POST(
 
     const userId = (session.user as any).id;
     const user = await db.user.findUnique({ where: { id: userId } });
-    const isAdmin = user?.role === 'admin';
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+    const isAdmin = user.role === 'admin';
 
     const { id } = await params;
 

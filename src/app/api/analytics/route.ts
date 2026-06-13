@@ -8,6 +8,13 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     const userId = session?.user ? (session.user as Record<string, unknown>).id as string : null;
 
+    if (userId) {
+      const user = await db.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+    }
+
     const body = await req.json();
     const { contentId, episodeId, action, position, duration, quality, device } = body;
 

@@ -11,6 +11,11 @@ export async function GET() {
     }
 
     const userId = (session.user as any).id;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     let profiles = await db.profile.findMany({
       where: { userId },
       orderBy: { isDefault: 'desc' },
@@ -44,6 +49,11 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = (session.user as any).id;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const { profileName, isKids } = await req.json();
 
     if (!profileName?.trim()) {

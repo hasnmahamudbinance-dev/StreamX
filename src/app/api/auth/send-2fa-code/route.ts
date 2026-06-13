@@ -6,32 +6,20 @@ import { sendEmail, twoFactorCodeHtml, generateVerificationCode } from '@/lib/em
 
 export async function POST(req: NextRequest) {
   try {
-    // Accept either an authenticated session or a userId in the body
+    // Require authenticated session — no unauthenticated userId branch
     const session = await getServerSession(authOptions);
-    const body = await req.json();
 
-    let userId: string;
-    let userEmail: string;
-
-    if (session?.user) {
-      userId = (session.user as any).id;
-      const user = await db.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-      userEmail = user.email;
-    } else if (body.userId) {
-      userId = body.userId;
-      const user = await db.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-      userEmail = user.email;
-    } else {
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authentication or userId required' },
+        { error: 'Authentication required' },
         { status: 401 },
       );
+    }
+
+    const userId = (session.user as any).id;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Generate 6-digit code
@@ -48,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     // Send email
     await sendEmail({
-      to: userEmail,
+      to: user.email,
       subject: 'StreamX - Your Verification Code',
       type: 'two_factor_code',
       html: twoFactorCodeHtml(code),

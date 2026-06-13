@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "rhel-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -399,7 +401,7 @@ model ContentReport {
   updatedAt   DateTime @updatedAt
 
   user     User  @relation("ReportSubmitter", fields: [userId], references: [id], onDelete: Cascade)
-  reviewer User? @relation("ReportReviewer", fields: [reviewedBy], references: [id])
+  reviewer User? @relation("ReportReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([userId])

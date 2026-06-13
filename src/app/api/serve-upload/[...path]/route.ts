@@ -2,16 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     const { path: pathParts } = await params;
-    const filePath = path.join(process.cwd(), "uploads", ...pathParts);
+
+    // Sanitize each path segment — reject any that contains directory traversal
+    const safeParts = pathParts.filter((part) => {
+      // Block empty segments, dots, and double-dots
+      if (!part || part === '.' || part === '..') return false;
+      // Block any segment containing a path separator or URL-encoded traversal
+      if (part.includes('/') || part.includes('\\') || part.includes('%2f') || part.includes('%2F') || part.includes('%5c') || part.includes('%5C')) return false;
+      return true;
+    });
+
+    if (safeParts.length !== pathParts.length) {
+      return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    }
+
+    const filePath = path.resolve(UPLOADS_DIR, ...safeParts);
+
+    // Verify the resolved path is still inside the uploads directory
+    if (!filePath.startsWith(UPLOADS_DIR + path.sep) && filePath !== UPLOADS_DIR) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    // Don't serve directories
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      return NextResponse.json({ error: "Not a file" }, { status: 400 });
     }
 
     const buffer = fs.readFileSync(filePath);
@@ -41,7 +68,6 @@ export async function GET(
     // Support range requests for video
     const range = req.headers.get("range");
     if (range && (contentType.startsWith("video/") || ext === ".m3u8")) {
-      const stat = fs.statSync(filePath);
       const fileSize = stat.size;
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);

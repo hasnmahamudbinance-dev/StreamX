@@ -11,6 +11,11 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     const { subject, description, category, priority } = body;
 

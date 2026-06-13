@@ -13,6 +13,11 @@ export async function POST(req: Request) {
     }
 
     const userId = (session.user as any).id as string;
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const body = await req.json();
     const { audio } = body;
 
